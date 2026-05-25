@@ -44,6 +44,15 @@ jobs:
       - name: Run basic import check
         run: |
           python -c "import api.main; import api.db; import api.deps" || echo "Import check (optional)"
+      - name: Check for Korean/non-English comments
+        run: |
+          echo "🔍 Checking for Korean comments..."
+          if git diff origin/main HEAD --unified=0 --no-color | grep -E "^\+.*[가-힣]" 2>/dev/null | grep -v "Binary"; then
+            echo "❌ Found Korean text in code/comments"
+            echo "Exception: Local dev files (AGENTS.md, docs/steps/) can use Korean"
+            exit 1
+          fi
+          echo "✅ No Korean comments found in code"
 
   javascript:
     runs-on: ubuntu-latest

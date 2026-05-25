@@ -12,6 +12,31 @@ git checkout -b <type>/<short-description>
 
 Never branch off a stale or non-main branch. If already in a worktree, ensure the worktree base is up to date with `git fetch origin main && git rebase origin/main` before making changes.
 
+## Linting & Code Quality
+
+**Ruff Configuration:**
+- Excludes markdown files (`.md`) from linting
+- Line length: 100 characters
+- Python version: 3.13
+- Enabled rules: E (style), F (errors), I (imports), UP (upgrades), B (bugbear)
+
+**Running Checks Locally:**
+```bash
+# Check code style
+uv run ruff check . --exclude="*.md"
+
+# Format code
+uv run ruff format . --exclude="*.md"
+
+# Type checking
+uv run python -c "import api.main; import api.db; import api.deps"
+
+# Run tests
+uv run pytest tests/ -v
+```
+
+All checks must pass before opening a PR. The GitHub Actions workflow runs these automatically on every PR.
+
 ## PR Rules
 
 ### Title Format

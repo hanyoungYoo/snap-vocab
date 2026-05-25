@@ -1,7 +1,7 @@
 [project]
 name = "snap-vocab"
 version = "0.1.0"
-description = "LLM 대화에서 영어 표현을 캡처하고 텔레그램으로 SRS 복습 문제를 보내주는 셀프호스팅 학습 도구"
+description = "Self-hosted tool that captures English expressions from LLM chats and sends spaced-repetition review questions via Telegram"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.115",

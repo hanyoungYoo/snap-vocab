@@ -62,13 +62,16 @@ The following checks are **automated** by GitHub Actions:
 
 ## Project Structure
 
-This project uses a **step-based development approach**:
-
-- `영어_학습_프로그램_종합_문서.md` — Complete project design (Korean)
-- `STEP NN: ...` files in docs/steps/ — Implementation guides (Korean, local only)
-- GitHub Actions — Automated CI/CD checks
-
-For detailed implementation guides, see the project documentation (Korean).
+```
+snap-vocab/
+├── api/            # FastAPI endpoints, DB access
+├── bot/            # Telegram handlers, SRS logic
+├── llm/            # LLM provider adapters
+├── notification/   # Notification adapters (Telegram, etc.)
+├── prompts/        # System prompt constants
+├── migrations/     # SQL DDL files (numbered sequentially)
+└── extension/      # Chrome extension (manifest v3)
+```
 
 ## Reporting Issues
 

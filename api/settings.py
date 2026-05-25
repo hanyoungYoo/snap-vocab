@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     # Telegram
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
+    telegram_webhook_secret: str = ""
     notification_provider: str = "telegram"
 
     # Review

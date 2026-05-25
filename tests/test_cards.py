@@ -201,12 +201,6 @@ async def test_malformed_llm_response_returns_empty(
 
 
 @pytest.mark.asyncio
-async def test_webhook_not_implemented(client: AsyncClient):
-    r = await client.post("/api/webhook/telegram", headers=HEADERS)
-    assert r.status_code == 501
-
-
-@pytest.mark.asyncio
 async def test_dashboard_not_implemented(client: AsyncClient):
     r = await client.get("/dashboard")
     assert r.status_code == 501

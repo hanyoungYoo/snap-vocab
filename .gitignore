@@ -217,9 +217,7 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# ─────────────────────────────────────────────────────────────────────────────
 # snap-vocab: Local development (not for GitHub)
-# ─────────────────────────────────────────────────────────────────────────────
 
 # Environment variables / secrets
 .env

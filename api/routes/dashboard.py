@@ -1,3 +1,6 @@
+import hmac
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -6,12 +9,13 @@ from api.db import acquire
 from api.settings import settings
 
 router = APIRouter(tags=["dashboard"])
-templates = Jinja2Templates(directory="templates")
+_TEMPLATES_DIR = Path(__file__).parent.parent.parent / "templates"
+templates = Jinja2Templates(directory=_TEMPLATES_DIR)
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request, key: str = ""):
-    if key != settings.api_secret_key:
+    if not hmac.compare_digest(key, settings.api_secret_key):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED)
 
     async with acquire() as conn:

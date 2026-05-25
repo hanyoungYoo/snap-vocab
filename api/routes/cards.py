@@ -1,7 +1,8 @@
 import json
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 
 from api.db import acquire
 from api.deps import verify_api_key
@@ -79,14 +80,16 @@ async def save_cards(req: CaptureRequest, _: None = Depends(verify_api_key)) -> 
     return CaptureResponse(saved=saved, duplicates=duplicates)
 
 
-_EDITABLE_FIELDS = {"meaning", "examples"}
+class CardPatch(BaseModel):
+    meaning: dict | None = None
+    examples: list | None = None
 
 
 @router.get("/cards")
 async def list_cards(
     _: None = Depends(verify_api_key),
-    limit: int = 100,
-    offset: int = 0,
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
 ) -> dict:
     async with acquire() as conn:
         rows = await conn.fetch(
@@ -112,15 +115,16 @@ async def list_cards(
 @router.patch("/cards/{card_id}")
 async def update_card(
     card_id: int,
-    patch: dict,
+    patch: CardPatch,
     _: None = Depends(verify_api_key),
 ) -> dict:
-    fields = {k: v for k, v in patch.items() if k in _EDITABLE_FIELDS}
+    fields = {k: v for k, v in patch.model_dump(exclude_none=True).items()}
     if not fields:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "no editable field")
     sets = ", ".join(f"{k} = ${i + 1}::jsonb" for i, k in enumerate(fields))
     values = [json.dumps(v) for v in fields.values()]
     async with acquire() as conn:
+        # asyncpg returns "UPDATE N" / "DELETE N"; " 0" means no row matched
         result = await conn.execute(
             f"UPDATE cards SET {sets} WHERE id = ${len(fields) + 1}",
             *values,
@@ -134,6 +138,7 @@ async def update_card(
 @router.delete("/cards/{card_id}")
 async def delete_card(card_id: int, _: None = Depends(verify_api_key)) -> dict:
     async with acquire() as conn:
+        # asyncpg returns "DELETE N"; " 0" means no row matched
         result = await conn.execute("DELETE FROM cards WHERE id = $1", card_id)
     if result.endswith(" 0"):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "card not found")

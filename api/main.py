@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -25,7 +26,8 @@ app.include_router(cards.router)
 app.include_router(webhook.router)
 app.include_router(dashboard.router)
 app.include_router(admin.router)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+_STATIC_DIR = Path(__file__).parent.parent / "static"
+app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
 
 
 @app.get("/")

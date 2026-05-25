@@ -216,3 +216,35 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ─────────────────────────────────────────────────────────────────────────────
+# snap-vocab: Local development (not for GitHub)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+
+# Claude Code internals (plans, memory, worktrees)
+.claude/
+
+# Development process guides (internal conventions)
+AGENTS.md
+
+# Progress tracking files (development notes)
+PROGRESS.md
+docs/steps/
+
+# Python virtual environment
+.venv/
+
+# Chrome extension build artifacts
+extension/dist/
+extension/node_modules/
+
+# Railway configuration
+.railway/
+
+# macOS system files
+.DS_Store

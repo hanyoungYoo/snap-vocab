@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from api.db import close_pool, init_pool
 from api.routes import admin, cards, dashboard, webhook
@@ -24,6 +25,7 @@ app.include_router(cards.router)
 app.include_router(webhook.router)
 app.include_router(dashboard.router)
 app.include_router(admin.router)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 @app.get("/")

@@ -77,3 +77,64 @@ async def save_cards(req: CaptureRequest, _: None = Depends(verify_api_key)) -> 
                 saved.append(card["expression"])
 
     return CaptureResponse(saved=saved, duplicates=duplicates)
+
+
+_EDITABLE_FIELDS = {"meaning", "examples"}
+
+
+@router.get("/cards")
+async def list_cards(
+    _: None = Depends(verify_api_key),
+    limit: int = 100,
+    offset: int = 0,
+) -> dict:
+    async with acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT id, expression, type, meaning, examples, level,
+                      interval_days, next_review, created_at, updated_at
+               FROM cards ORDER BY updated_at DESC LIMIT $1 OFFSET $2""",
+            limit,
+            offset,
+        )
+        total = await conn.fetchval("SELECT COUNT(*) FROM cards")
+
+    items = []
+    for r in rows:
+        d = dict(r)
+        if isinstance(d.get("meaning"), str):
+            d["meaning"] = json.loads(d["meaning"])
+        if isinstance(d.get("examples"), str):
+            d["examples"] = json.loads(d["examples"])
+        items.append(d)
+    return {"items": items, "total": total}
+
+
+@router.patch("/cards/{card_id}")
+async def update_card(
+    card_id: int,
+    patch: dict,
+    _: None = Depends(verify_api_key),
+) -> dict:
+    fields = {k: v for k, v in patch.items() if k in _EDITABLE_FIELDS}
+    if not fields:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "no editable field")
+    sets = ", ".join(f"{k} = ${i + 1}::jsonb" for i, k in enumerate(fields))
+    values = [json.dumps(v) for v in fields.values()]
+    async with acquire() as conn:
+        result = await conn.execute(
+            f"UPDATE cards SET {sets} WHERE id = ${len(fields) + 1}",
+            *values,
+            card_id,
+        )
+    if result.endswith(" 0"):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "card not found")
+    return {"ok": True}
+
+
+@router.delete("/cards/{card_id}")
+async def delete_card(card_id: int, _: None = Depends(verify_api_key)) -> dict:
+    async with acquire() as conn:
+        result = await conn.execute("DELETE FROM cards WHERE id = $1", card_id)
+    if result.endswith(" 0"):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "card not found")
+    return {"ok": True}

@@ -216,3 +216,33 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ── snap-vocab: 로컬 전용 (GitHub에 올리지 않는 것) ──────────────────────────
+
+# 환경 변수 / 시크릿
+.env
+.env.*
+!.env.example
+
+# Claude Code 내부 파일 (플랜, 메모리, 워크트리 등)
+.claude/
+
+# AI 어시스턴트 작업 가이드 (내부 컨벤션)
+AGENTS.md
+
+# 진행 상황 추적 파일 (개인 작업 노트)
+PROGRESS.md
+docs/steps/
+
+# Python 가상환경
+.venv/
+
+# Chrome 확장 빌드 산출물
+extension/dist/
+extension/node_modules/
+
+# Railway
+.railway/
+
+# macOS
+.DS_Store

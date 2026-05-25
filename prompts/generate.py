@@ -37,13 +37,16 @@ JSON 형식:
 
 def fill_blank_prompt(card: dict) -> str:
     examples = card.get("examples") or []
+    example_sentences = "\n".join(
+        f"  - {e['sentence']}" for e in examples if isinstance(e, dict) and "sentence" in e
+    )
     return f"""\
 다음 카드로 빈칸 채우기 문제를 만드세요.
 
 카드:
 - 표현: {card["expression"]}
 - 뜻: {(card.get("meaning") or {}).get("core", "")}
-- 예문들: {examples}
+- 예문들:\n{example_sentences}
 
 JSON 형식:
 {{"question": "빈칸이 있는 문장 (___ 표시)", "answer": "{card["expression"]}", "hint": ""}}

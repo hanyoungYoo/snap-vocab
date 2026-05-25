@@ -19,9 +19,7 @@ def _extract_json(text: str) -> dict:
 async def _update_card_and_log(
     card: dict, correct: bool, user_answer: str, feedback: str, qtype: str
 ) -> None:
-    new_level, new_interval = calculate_next_review(
-        card["level"], correct, card["interval_days"]
-    )
+    new_level, new_interval = calculate_next_review(card["level"], correct, card["interval_days"])
     async with acquire() as conn:
         await conn.execute(
             """UPDATE cards
@@ -67,6 +65,8 @@ async def handle_text_answer(reply_to_message_id: str | None, text: str) -> None
 
     Match via reply_to_message_id when present; otherwise fall back to the most
     recent pending_reviews row (single-user assumption).
+    DB connection is released before the LLM call to avoid holding a pool
+    connection during a multi-second network round-trip.
     """
     async with acquire() as conn:
         if reply_to_message_id:
@@ -84,37 +84,40 @@ async def handle_text_answer(reply_to_message_id: str | None, text: str) -> None
             "SELECT id, expression, meaning, level, interval_days FROM cards WHERE id=$1",
             pending["card_id"],
         )
-        if not card:
-            return
 
-        card_d = dict(card)
-        llm = get_llm(model=settings.review_model)
-        raw = await llm.complete(
-            GRADE_SYSTEM,
-            grade_prompt(
-                card_d, pending["question"], pending["correct_answer"], text
-            ),
-            max_tokens=512,
-        )
-        result = _extract_json(raw)
-        correct = bool(result.get("correct", False))
-        feedback_text = result.get("feedback", "")
-        better = result.get("better_expression", "")
+    if not card:
+        return
 
-        msg = ("✅ " if correct else "❌ ") + feedback_text
-        if better:
-            msg += f"\n💡 {better}"
+    pending_d = dict(pending)
+    card_d = dict(card)
 
-        notif = get_notification()
-        await notif.send_feedback(msg)
-        await _update_card_and_log(
-            card_d,
-            correct,
-            text,
-            feedback_text,
-            get_question_type(card_d["level"]),
-        )
+    # DB connection released above; LLM call happens outside the acquire block.
+    llm = get_llm(model=settings.review_model)
+    raw = await llm.complete(
+        GRADE_SYSTEM,
+        grade_prompt(card_d, pending_d["question"], pending_d["correct_answer"], text),
+        max_tokens=512,
+    )
+    result = _extract_json(raw)
+    correct = bool(result.get("correct", False))
+    feedback_text = result.get("feedback", "")
+    better = result.get("better_expression", "")
 
+    msg = ("✅ " if correct else "❌ ") + feedback_text
+    if better:
+        msg += f"\n💡 {better}"
+
+    notif = get_notification()
+    await notif.send_feedback(msg)
+    await _update_card_and_log(
+        card_d,
+        correct,
+        text,
+        feedback_text,
+        get_question_type(card_d["level"]),
+    )
+
+    async with acquire() as conn:
         await conn.execute(
-            "DELETE FROM pending_reviews WHERE message_id=$1", pending["message_id"]
+            "DELETE FROM pending_reviews WHERE message_id=$1", pending_d["message_id"]
         )

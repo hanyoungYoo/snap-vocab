@@ -67,9 +67,7 @@ async def test_trigger_review_requires_api_key(client):
 
 
 async def test_trigger_review_rejects_bad_key(client):
-    resp = await client.post(
-        "/api/admin/trigger-review", headers={"X-API-Key": "wrong"}
-    )
+    resp = await client.post("/api/admin/trigger-review", headers={"X-API-Key": "wrong"})
     assert resp.status_code == 401
 
 
@@ -86,9 +84,7 @@ async def test_trigger_review_multiple_choice_sends_and_no_pending(
         }
     )
 
-    resp = await client.post(
-        "/api/admin/trigger-review", headers={"X-API-Key": "test-secret"}
-    )
+    resp = await client.post("/api/admin/trigger-review", headers={"X-API-Key": "test-secret"})
     assert resp.status_code == 200
     assert resp.json() == {"sent": 1}
     assert llm.calls == 1
@@ -100,9 +96,7 @@ async def test_trigger_review_multiple_choice_sends_and_no_pending(
     assert pending == []
 
 
-async def test_trigger_review_fill_blank_creates_pending(
-    client, db_pool, patch_llm_and_notif
-):
+async def test_trigger_review_fill_blank_creates_pending(client, db_pool, patch_llm_and_notif):
     await _insert_due_card(db_pool, level=4)
     _, notif = patch_llm_and_notif(
         {
@@ -113,9 +107,7 @@ async def test_trigger_review_fill_blank_creates_pending(
         message_id="100",
     )
 
-    resp = await client.post(
-        "/api/admin/trigger-review", headers={"X-API-Key": "test-secret"}
-    )
+    resp = await client.post("/api/admin/trigger-review", headers={"X-API-Key": "test-secret"})
     assert resp.status_code == 200
     assert resp.json() == {"sent": 1}
     assert notif.questions[0]["type"] == "fill_blank"
@@ -129,8 +121,6 @@ async def test_trigger_review_fill_blank_creates_pending(
 
 async def test_trigger_review_no_due_cards_returns_zero(client, patch_llm_and_notif):
     patch_llm_and_notif({"question": "x", "options": [], "answer": "x"})
-    resp = await client.post(
-        "/api/admin/trigger-review", headers={"X-API-Key": "test-secret"}
-    )
+    resp = await client.post("/api/admin/trigger-review", headers={"X-API-Key": "test-secret"})
     assert resp.status_code == 200
     assert resp.json() == {"sent": 0}

@@ -3,9 +3,7 @@ from __future__ import annotations
 MAX_INTERVAL_DAYS = 365
 
 
-def calculate_next_review(
-    level: int, correct: bool, current_interval_days: int
-) -> tuple[int, int]:
+def calculate_next_review(level: int, correct: bool, current_interval_days: int) -> tuple[int, int]:
     """Return (new_level, new_interval_days)."""
     if correct:
         new_level = level + 1

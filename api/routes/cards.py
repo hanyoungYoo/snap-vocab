@@ -11,10 +11,8 @@ router = APIRouter(prefix="/api", tags=["cards"])
 
 
 @router.post("/cards", response_model=CaptureResponse)
-async def save_cards(
-    req: CaptureRequest, _: None = Depends(verify_api_key)
-) -> CaptureResponse:
-    
+async def save_cards(req: CaptureRequest, _: None = Depends(verify_api_key)) -> CaptureResponse:
+
     if settings.llm_provider:
         raise NotImplementedError("LLM provider configured but adapter not yet implemented")
 

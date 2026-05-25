@@ -1,5 +1,17 @@
 # snap-vocab — Claude Working Guide
 
+## Starting Work
+
+**Always sync with main before starting any task.** This prevents merge conflicts.
+
+```bash
+git checkout main
+git pull origin main
+git checkout -b <type>/<short-description>
+```
+
+Never branch off a stale or non-main branch. If already in a worktree, ensure the worktree base is up to date with `git fetch origin main && git rebase origin/main` before making changes.
+
 ## PR Rules
 
 ### Title Format

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>snap-vocab 대시보드</title>
+  <link rel="stylesheet" href="/static/dashboard.css" />
+</head>
+<body>
+  <h1>snap-vocab</h1>
+  <section class="stats">
+    <div><strong>총 카드</strong><span>{{ total }}</span></div>
+    <div><strong>오늘 복습 대상</strong><span>{{ due_today }}</span></div>
+    <div><strong>최근 7일 정답률</strong><span>{{ accuracy_7d }}%</span></div>
+  </section>
+
+  <section class="levels">
+    <h2>레벨 분포</h2>
+    <ul>
+      {% for row in levels %}<li>L{{ row.level }}: {{ row.n }}</li>{% endfor %}
+    </ul>
+  </section>
+
+  <section>
+    <h2>카드 목록</h2>
+    <table id="cards"><thead>
+      <tr><th>표현</th><th>타입</th><th>뜻</th><th>레벨</th><th>다음 복습</th><th></th></tr>
+    </thead><tbody></tbody></table>
+  </section>
+
+  <script>window.API_KEY = {{ key | tojson }};</script>
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>

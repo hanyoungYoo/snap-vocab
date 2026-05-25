@@ -201,6 +201,116 @@ async def test_malformed_llm_response_returns_empty(
 
 
 @pytest.mark.asyncio
-async def test_dashboard_not_implemented(client: AsyncClient):
+async def test_dashboard_unauthorized(client: AsyncClient):
     r = await client.get("/dashboard")
-    assert r.status_code == 501
+    assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_dashboard_wrong_key(client: AsyncClient):
+    r = await client.get("/dashboard", params={"key": "wrong"})
+    assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_dashboard_ok(client: AsyncClient):
+    r = await client.get("/dashboard", params={"key": API_KEY})
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert "snap-vocab" in r.text
+
+
+async def _insert_card(db_pool, expression: str = "kick the bucket") -> int:
+    async with db_pool.acquire() as conn:
+        return await conn.fetchval(
+            """INSERT INTO cards (expression, type, meaning, examples)
+               VALUES ($1, 'idiom', $2::jsonb, '[]'::jsonb) RETURNING id""",
+            expression,
+            json.dumps({"core": "죽다", "nuance": ""}),
+        )
+
+
+@pytest.mark.asyncio
+async def test_list_cards_empty(client: AsyncClient):
+    r = await client.get("/api/cards", headers=HEADERS)
+    assert r.status_code == 200
+    assert r.json() == {"items": [], "total": 0}
+
+
+@pytest.mark.asyncio
+async def test_list_cards_returns_inserted(client: AsyncClient, db_pool):
+    await _insert_card(db_pool, "break a leg")
+    r = await client.get("/api/cards", headers=HEADERS)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] == 1
+    assert data["items"][0]["expression"] == "break a leg"
+    assert data["items"][0]["meaning"]["core"] == "죽다"
+
+
+@pytest.mark.asyncio
+async def test_list_cards_requires_auth(client: AsyncClient):
+    r = await client.get("/api/cards", headers={"X-API-Key": "wrong"})
+    assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_patch_card_meaning(client: AsyncClient, db_pool):
+    card_id = await _insert_card(db_pool)
+    r = await client.patch(
+        f"/api/cards/{card_id}",
+        json={"meaning": {"core": "사망하다", "nuance": "구어"}},
+        headers=HEADERS,
+    )
+    assert r.status_code == 200
+    assert r.json() == {"ok": True}
+
+    async with db_pool.acquire() as conn:
+        meaning = await conn.fetchval("SELECT meaning FROM cards WHERE id = $1", card_id)
+    assert json.loads(meaning)["core"] == "사망하다"
+
+
+@pytest.mark.asyncio
+async def test_patch_card_rejects_unknown_field(client: AsyncClient, db_pool):
+    card_id = await _insert_card(db_pool)
+    r = await client.patch(
+        f"/api/cards/{card_id}",
+        json={"level": 5},
+        headers=HEADERS,
+    )
+    assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_patch_card_not_found(client: AsyncClient):
+    r = await client.patch(
+        "/api/cards/99999",
+        json={"meaning": {"core": "x"}},
+        headers=HEADERS,
+    )
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_card(client: AsyncClient, db_pool):
+    card_id = await _insert_card(db_pool)
+    r = await client.delete(f"/api/cards/{card_id}", headers=HEADERS)
+    assert r.status_code == 200
+    assert r.json() == {"ok": True}
+
+    async with db_pool.acquire() as conn:
+        count = await conn.fetchval("SELECT COUNT(*) FROM cards WHERE id = $1", card_id)
+    assert count == 0
+
+
+@pytest.mark.asyncio
+async def test_delete_card_requires_auth(client: AsyncClient, db_pool):
+    card_id = await _insert_card(db_pool)
+    r = await client.delete(f"/api/cards/{card_id}", headers={"X-API-Key": "wrong"})
+    assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_delete_card_not_found(client: AsyncClient):
+    r = await client.delete("/api/cards/99999", headers=HEADERS)
+    assert r.status_code == 404

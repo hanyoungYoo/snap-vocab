@@ -31,9 +31,7 @@ def _parse_cards(raw: str) -> list[dict]:
 
 
 @router.post("/cards", response_model=CaptureResponse)
-async def save_cards(
-    req: CaptureRequest, _: None = Depends(verify_api_key)
-) -> CaptureResponse:
+async def save_cards(req: CaptureRequest, _: None = Depends(verify_api_key)) -> CaptureResponse:
     if not settings.llm_provider or not settings.llm_api_key:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,

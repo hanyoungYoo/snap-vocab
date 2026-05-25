@@ -74,9 +74,7 @@ async def test_llm_not_configured_returns_503(client: AsyncClient, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_extract_and_save_cards(
-    client: AsyncClient, db_pool, llm_configured, monkeypatch
-):
+async def test_extract_and_save_cards(client: AsyncClient, db_pool, llm_configured, monkeypatch):
     llm_response = json.dumps(
         [
             {
@@ -169,9 +167,7 @@ async def test_duplicate_appends_generated_examples(
 
 
 @pytest.mark.asyncio
-async def test_markdown_fenced_json_is_parsed(
-    client: AsyncClient, llm_configured, monkeypatch
-):
+async def test_markdown_fenced_json_is_parsed(client: AsyncClient, llm_configured, monkeypatch):
     fenced = (
         "```json\n"
         + json.dumps(

@@ -23,11 +23,7 @@ class TelegramNotification(NotificationBase):
         if qtype == "multiple_choice":
             keyboard = InlineKeyboardMarkup(
                 [
-                    [
-                        InlineKeyboardButton(
-                            opt, callback_data=f"ans:{question['card_id']}:{opt}"
-                        )
-                    ]
+                    [InlineKeyboardButton(opt, callback_data=f"ans:{question['card_id']}:{opt}")]
                     for opt in question["options"]
                 ]
             )

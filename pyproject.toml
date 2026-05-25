@@ -13,6 +13,8 @@ dependencies = [
     "python-multipart>=0.0.9",
     "anthropic>=0.104.1",
     "python-telegram-bot>=22.7",
+    "apscheduler>=3.11.2",
+    "tzdata>=2026.2",
 ]
 
 [dependency-groups]

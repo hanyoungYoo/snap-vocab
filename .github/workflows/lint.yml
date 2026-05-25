@@ -54,6 +54,39 @@ jobs:
           fi
           echo "✅ No Korean comments found in code"
 
+  test:
+    runs-on: ubuntu-latest
+    services:
+      db-test:
+        image: postgres:15
+        env:
+          POSTGRES_DB: snap_vocab_test
+          POSTGRES_USER: snap
+          POSTGRES_PASSWORD: snap
+        ports:
+          - 15433:5432
+        options: >-
+          --health-cmd "pg_isready -U snap -d snap_vocab_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://snap:snap@localhost:15433/snap_vocab_test
+      API_SECRET_KEY: test-secret
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+
+      - name: Run tests
+        run: uv run pytest tests/ -v
+
   javascript:
     runs-on: ubuntu-latest
     steps:

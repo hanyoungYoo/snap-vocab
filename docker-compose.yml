@@ -15,5 +15,21 @@ services:
       timeout: 5s
       retries: 5
 
+  db-test:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: snap_vocab_test
+      POSTGRES_USER: snap
+      POSTGRES_PASSWORD: snap
+    ports:
+      - "15433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U snap -d snap_vocab_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:

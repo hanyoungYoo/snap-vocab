@@ -35,21 +35,50 @@ uv run uvicorn api.main:app --reload
 3. Run tests and linters locally (or let CI do it)
 4. Push and open a Pull Request
 
-## Pull Request Checklist
+## Automated Checks (CI/CD)
 
-The following checks are **automated** by GitHub Actions:
+**Every PR is automatically checked by GitHub Actions. Failing checks block merge:**
 
-- ✅ **Secrets Detection** — API keys, tokens, credentials are automatically detected and blocked
-- ✅ **Code Style** — `ruff` checks for Python code style
-- ✅ **Gitignore Violations** — `.env` and other local files are checked
+| Check | Command | Blocks Merge? | What It Does |
+|-------|---------|---------------|-------------|
+| 🔐 Secrets Detection | `git diff` + regex patterns | ✅ **YES** | Detects API keys, tokens, credentials (`sk-`, `ANTHROPIC_API_KEY`, `TELEGRAM_BOT_TOKEN`, etc.) |
+| 📋 Gitignore Violations | `git diff --name-only` | ✅ **YES** | Prevents `.env*`, `AGENTS.md`, `PROGRESS.md`, `docs/steps/`, `.claude/` from being committed |
+| 🐍 Python Linting | `ruff check .` | ✅ **YES** | Enforces style: imports, naming, syntax (line length: 100) |
+| 🎨 Python Formatting | `ruff format --check .` | ✅ **YES** | Enforces consistent code formatting |
+| ✅ Import Validation | `python -c "import api.main; import api.db; import api.deps"` | ✅ **YES** | Ensures critical modules can be imported |
+| 🚫 JavaScript Style | Check for `var` usage | ✅ **YES** | Enforces `const`/`let` instead of `var` |
+| 🌐 English-Only Code | Detect Korean characters in diffs | ✅ **YES** | Code must be in English (exception: local dev files) |
 
-**Manual checks (before submitting):**
+**You cannot merge a PR if any automated check fails.** See `.github/workflows/` for details.
 
-- [ ] Added or modified `.env*` files by accident? (They should be in `.gitignore`)
-- [ ] Hardcoded secrets in code? (Use environment variables instead)
+## Pre-PR Checklist (Local)
+
+Before pushing, run these locally to catch issues early:
+
+```bash
+# Check code style
+uv run ruff check .
+
+# Check formatting
+uv run ruff format --check .
+
+# Run tests
+uv run pytest
+
+# (Optional) Simulate secrets detection
+git diff origin/main HEAD | grep -iE "sk-[A-Za-z0-9]{20,}|ANTHROPIC_API_KEY|TELEGRAM_BOT_TOKEN" && echo "❌ Secrets found!" || echo "✅ No secrets"
+```
+
+## Manual Verification (Before Submitting)
+
+Even though CI catches most issues, double-check these:
+
+- [ ] No `.env`, `.env.*` files committed (should be in `.gitignore`)
+- [ ] No API keys, tokens, or credentials in code (use `.env` instead)
 - [ ] Updated `.env.example` if adding new environment variables?
-- [ ] Added migrations to `migrations/` for schema changes?
-- [ ] Commit messages are clear and descriptive?
+- [ ] Added SQL migration files in `migrations/` for schema changes?
+- [ ] Commit messages are clear and descriptive
+- [ ] If modifying a STEP, updated `PROGRESS.md` status accordingly
 
 ## Code Style
 
@@ -62,13 +91,70 @@ The following checks are **automated** by GitHub Actions:
 
 ## Project Structure
 
-This project uses a **step-based development approach**:
+### Public Files (In Repository)
 
-- `영어_학습_프로그램_종합_문서.md` — Complete project design (Korean)
-- `STEP NN: ...` files in docs/steps/ — Implementation guides (Korean, local only)
-- GitHub Actions — Automated CI/CD checks
+```
+snap-vocab/
+├── README.md                           # Quick start guide
+├── CONTRIBUTING.md                     # This file
+├── LICENSE                             # Project license
+├── pyproject.toml                      # Python dependencies (uv)
+├── .python-version                     # Python 3.13
+├── .gitignore                          # Excludes secrets, .env, local files
+├── docker-compose.yml                  # Local DB (PostgreSQL)
+├── .github/
+│   ├── workflows/
+│   │   ├── lint.yml                   # Ruff, imports, JS style, English-only checks
+│   │   └── secrets-check.yml          # API key detection, .gitignore validation
+│   └── pull_request_template.md        # Auto-populated PR description
+├── api/                                # FastAPI endpoints, DB access
+├── bot/                                # Telegram handlers, SRS logic
+├── llm/                                # LLM provider adapters (Claude, OpenAI, etc.)
+├── notification/                       # Notification adapters (Telegram, Slack, etc.)
+├── prompts/                            # System prompts (constants, no logic)
+├── migrations/                         # SQL DDL files (numbered sequentially)
+└── extension/                          # Chrome extension (manifest v3)
+    ├── manifest.json
+    ├── content.js
+    ├── popup.html
+    └── background.js
+```
 
-For detailed implementation guides, see the project documentation (Korean).
+### Local Files (NOT in Repository - .gitignore)
+
+These files are **excluded from git** for security and development isolation:
+
+```
+snap-vocab/
+├── .env                                # Environment secrets (❌ NEVER commit)
+├── .env.*                              # Variant configs (❌ NEVER commit)
+├── AGENTS.md                           # AI assistant guidelines (local only)
+├── PROGRESS.md                         # Step progress tracker (local only)
+├── docs/steps/                         # Step-by-step guides (local only)
+│   ├── README.md
+│   ├── 00-initial-setup.md
+│   ├── 01-db-and-api.md
+│   ├── ...
+│   └── 07-deploy.md
+├── .venv/                              # Python virtual environment
+├── .ruff_cache/                        # Ruff cache
+├── extension/dist/                     # Built extension
+├── extension/node_modules/             # Node dependencies
+├── .claude/                            # Claude Code internals (plans, memory, worktrees)
+└── .railway/                           # Railway config
+```
+
+### Documentation
+
+The project is organized in **steps**:
+
+- **[영어_학습_프로그램_종합_문서.md](영어_학습_프로그램_종합_문서.md)** — Complete design (Korean, ~970 lines)
+- **[PROGRESS.md](PROGRESS.md)** — Step progress tracker (local only)
+- **[AGENTS.md](AGENTS.md)** — Guidelines for AI assistants (local only)
+- **[docs/steps/](docs/steps/)** — Step-by-step implementation guides (local only, Korean)
+  - Each STEP is independent: contains goal, scope, work items, validation criteria
+
+**For detailed implementation guides, see `PROGRESS.md` and `docs/steps/` (local files).**
 
 ## Reporting Issues
 

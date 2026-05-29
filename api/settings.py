@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     extract_model: str = "claude-haiku-4-5-20251001"
     review_model: str = "claude-sonnet-4-6"
     ollama_base_url: str = "http://localhost:11434"
+    openrouter_api_key: str = ""
 
     # Telegram
     telegram_bot_token: str = ""

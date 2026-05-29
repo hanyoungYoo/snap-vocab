@@ -27,4 +27,8 @@ def get_llm(provider: str | None = None, model: str | None = None) -> LLMBase:
         from llm.ollama import OllamaLLM
 
         return OllamaLLM(model)
+    if provider == "openrouter":
+        from llm.openrouter import OpenRouterLLM
+
+        return OpenRouterLLM(model)
     raise ValueError(f"Unknown LLM provider: {provider}")

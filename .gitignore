@@ -232,7 +232,6 @@ AGENTS.md
 
 # Progress tracking files (development notes)
 PROGRESS.md
-docs/steps/
 
 # Python virtual environment
 .venv/

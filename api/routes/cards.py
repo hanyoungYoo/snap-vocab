@@ -33,7 +33,9 @@ def _parse_cards(raw: str) -> list[dict]:
 
 @router.post("/cards", response_model=CaptureResponse)
 async def save_cards(req: CaptureRequest, _: None = Depends(verify_api_key)) -> CaptureResponse:
-    if not settings.llm_provider or not settings.llm_api_key:
+    # ollama는 API 키 불필요; 다른 provider는 키 필수
+    needs_key = settings.llm_provider not in ("ollama",)
+    if not settings.llm_provider or (needs_key and not settings.llm_api_key):
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             "LLM_PROVIDER / LLM_API_KEY not configured",

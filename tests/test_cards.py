@@ -45,7 +45,7 @@ def _install_fake_llm(monkeypatch, response: str) -> _FakeLLM:
 async def test_health(client: AsyncClient):
     r = await client.get("/")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok"}
+    assert "text/html" in r.headers["content-type"]
 
 
 @pytest.mark.asyncio
@@ -207,19 +207,21 @@ async def test_malformed_llm_response_returns_empty(
 
 @pytest.mark.asyncio
 async def test_dashboard_unauthorized(client: AsyncClient):
-    r = await client.get("/dashboard")
-    assert r.status_code == 401
+    r = await client.get("/dashboard", follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/"
 
 
 @pytest.mark.asyncio
 async def test_dashboard_wrong_key(client: AsyncClient):
-    r = await client.get("/dashboard", params={"key": "wrong"})
-    assert r.status_code == 401
+    r = await client.get("/dashboard", cookies={"api_key": "wrong"}, follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/"
 
 
 @pytest.mark.asyncio
 async def test_dashboard_ok(client: AsyncClient):
-    r = await client.get("/dashboard", params={"key": API_KEY})
+    r = await client.get("/dashboard", cookies={"api_key": API_KEY})
     assert r.status_code == 200
     assert "text/html" in r.headers["content-type"]
     assert "snap-vocab" in r.text

@@ -28,8 +28,3 @@ app.include_router(dashboard.router)
 app.include_router(admin.router)
 _STATIC_DIR = Path(__file__).parent.parent / "static"
 app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
-
-
-@app.get("/")
-async def root() -> dict:
-    return {"status": "ok"}

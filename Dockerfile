@@ -1,15 +1,15 @@
 FROM python:3.13-slim
 
-# uv 설치
+# Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
-# 의존성 먼저 (캐시 활용)
+# Install dependencies first to leverage Docker layer caching
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
-# 앱 코드
+# Copy application code
 COPY . .
 RUN uv sync --frozen --no-dev
 

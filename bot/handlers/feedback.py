@@ -64,7 +64,7 @@ async def handle_choice(card_id: int, choice: str) -> None:
         card_d["expression"],
         correct,
     )
-    feedback = "✅ 정답입니다!" if correct else f"❌ 틀렸습니다. 정답: {card_d['expression']}"
+    feedback = "✅ Correct!" if correct else f"❌ Wrong. Answer: {card_d['expression']}"
 
     notif = get_notification()
     await notif.send_feedback(feedback)

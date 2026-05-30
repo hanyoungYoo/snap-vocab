@@ -39,8 +39,8 @@ async def run_daily_review() -> int:
     notif = get_notification()
     sent = 0
 
-    # 세션 시작 메시지
-    await notif.send_text(f"📚 오늘 복습할 카드가 {len(cards)}개 있어요. 시작합니다!")
+    # Announce the session before sending questions
+    await notif.send_text(f"📚 You have {len(cards)} card(s) to review today. Let's start!")
 
     for card in cards:
         try:
@@ -56,7 +56,7 @@ async def run_daily_review() -> int:
             qtype = get_question_type(card_d["level"])
             prompt_fn = multiple_choice_prompt if qtype == "multiple_choice" else fill_blank_prompt
 
-            # rate limit 대비 최대 3회 재시도 (1s, 3s 간격)
+            # Retry up to 3 times to handle transient rate-limit errors
             q = {}
             for attempt in range(3):
                 try:

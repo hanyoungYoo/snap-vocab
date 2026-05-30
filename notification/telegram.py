@@ -48,5 +48,5 @@ class TelegramNotification(NotificationBase):
         await self.bot.send_message(chat_id=self.chat_id, text=text)
 
     async def answer_callback_query(self, callback_query_id: str) -> None:
-        """Telegram에게 callback_query 수신 확인 — 미응답 시 Telegram이 계속 재전송."""
+        """Acknowledge a callback_query so Telegram stops retrying it."""
         await self.bot.answer_callback_query(callback_query_id=callback_query_id)

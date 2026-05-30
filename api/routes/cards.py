@@ -33,7 +33,7 @@ def _parse_cards(raw: str) -> list[dict]:
 
 @router.post("/cards", response_model=CaptureResponse)
 async def save_cards(req: CaptureRequest, _: None = Depends(verify_api_key)) -> CaptureResponse:
-    # ollama는 API 키 불필요; openrouter는 자체 키 사용; 나머지는 llm_api_key 필수
+    # ollama needs no key; openrouter uses its own key; others require llm_api_key
     keyless = {"ollama"}
     has_key = settings.llm_api_key or (
         settings.llm_provider == "openrouter" and settings.openrouter_api_key

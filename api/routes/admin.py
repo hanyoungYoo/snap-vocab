@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 
 from api.deps import verify_api_key
 from api.settings import settings
@@ -8,6 +9,8 @@ from bot import scheduler as scheduler_mod
 from bot.handlers.review import run_daily_review
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+_VALID_PROVIDERS = {"claude", "openrouter", "ollama"}
 
 
 @router.post("/trigger-review")
@@ -40,8 +43,50 @@ def _next_review_at() -> str | None:
     return job.next_run_time.isoformat()
 
 
+class LLMSettingsPatch(BaseModel):
+    llm_provider: str | None = None
+    llm_api_key: str | None = None
+    extract_model: str | None = None
+    review_model: str | None = None
+    review_time: str | None = None
+    review_max_cards: int | None = None
+
+
+@router.patch("/settings")
+async def patch_settings(
+    patch: LLMSettingsPatch,
+    _: None = Depends(verify_api_key),
+) -> dict:
+    if patch.llm_provider is not None and patch.llm_provider not in _VALID_PROVIDERS:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid llm_provider")
+    if patch.review_time is not None:
+        import re  # noqa: PLC0415
+
+        if not re.match(r"^\d{2}:\d{2}$", patch.review_time):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "review_time must be HH:MM")
+
+    updates = patch.model_dump(exclude_none=True)
+    for key, value in updates.items():
+        setattr(settings, key, value)
+
+    return {"ok": True, "updated": list(updates.keys())}
+
+
+@router.get("/settings")
+async def get_settings(_: None = Depends(verify_api_key)) -> dict:
+    return {
+        "llm_provider": settings.llm_provider,
+        "extract_model": settings.extract_model,
+        "review_model": settings.review_model,
+        "review_time": settings.review_time,
+        "review_max_cards": settings.review_max_cards,
+        "has_llm_api_key": bool(settings.llm_api_key),
+        "has_openrouter_api_key": bool(settings.openrouter_api_key),
+    }
+
+
 @router.get("/status")
-async def status(_: None = Depends(verify_api_key)) -> dict:
+async def get_status(_: None = Depends(verify_api_key)) -> dict:
     from api.db import acquire
 
     db_ok = True

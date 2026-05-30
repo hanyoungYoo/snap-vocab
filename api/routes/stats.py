@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date, timedelta
+
 from fastapi import APIRouter, Depends, Query
 
 from api.db import acquire
@@ -76,3 +78,52 @@ async def timeseries(
             }
         )
     return {"points": points}
+
+
+@router.get("/streak")
+async def streak(_: None = Depends(verify_api_key)) -> dict:
+    async with acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT DISTINCT date_trunc('day', reviewed_at)::date AS day
+               FROM review_logs
+               ORDER BY day DESC"""
+        )
+
+    days = {r["day"] for r in rows}
+    current = 0
+    cursor = date.today()
+    while cursor in days:
+        current += 1
+        cursor -= timedelta(days=1)
+
+    longest = 0
+    if days:
+        sorted_days = sorted(days)
+        run = 1
+        best = 1
+        for i in range(1, len(sorted_days)):
+            if sorted_days[i] - sorted_days[i - 1] == timedelta(days=1):
+                run += 1
+                best = max(best, run)
+            else:
+                run = 1
+        longest = best
+
+    return {"current_streak": current, "longest_streak": longest}
+
+
+@router.get("/upcoming")
+async def upcoming(
+    _: None = Depends(verify_api_key),
+    days: int = Query(default=60, ge=7, le=180),
+) -> dict:
+    async with acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT next_review::date AS day, COUNT(*) AS n
+               FROM cards
+               WHERE next_review::date BETWEEN CURRENT_DATE AND CURRENT_DATE + $1::int
+               GROUP BY 1
+               ORDER BY 1""",
+            days,
+        )
+    return {"points": [{"day": r["day"].isoformat(), "n": r["n"]} for r in rows]}

@@ -53,7 +53,6 @@ function toast(msg, kind = 'info') {
 $('#theme-toggle').addEventListener('click', () => {
   const isDark = document.documentElement.classList.toggle('dark');
   localStorage.setItem('theme', isDark ? 'dark' : 'light');
-  // re-render charts so they pick up new theme colors
   drawCharts();
 });
 
@@ -85,6 +84,17 @@ async function loadTimeseries() {
   const data = await api('/api/stats/timeseries?days=30');
   lastTimeseries = data.points;
   drawTimeseries(data.points);
+}
+
+async function loadStreak() {
+  try {
+    const data = await api('/api/stats/streak');
+    const el = $('[data-stat="streak"]');
+    el.textContent = data.current_streak === 0 ? '0일' : `${data.current_streak}일 🔥`;
+    $('#streak-longest').textContent = `최장 ${data.longest_streak}일`;
+  } catch {
+    $('[data-stat="streak"]').textContent = '—';
+  }
 }
 
 function drawCharts() {
@@ -158,6 +168,93 @@ function drawLevels(levels) {
   });
 }
 
+/* ---------- Heatmap ---------- */
+async function loadHeatmap() {
+  const container = $('#heatmap-container');
+  try {
+    const data = await api('/api/stats/upcoming?days=60');
+    renderHeatmap(container, data.points, 60);
+  } catch {
+    container.innerHTML = '<div class="text-xs text-rose-500">불러오기 실패</div>';
+  }
+}
+
+function renderHeatmap(container, points, days) {
+  const dark = document.documentElement.classList.contains('dark');
+  const byDay = {};
+  for (const p of points) byDay[p.day] = p.n;
+
+  const maxN = Math.max(1, ...Object.values(byDay));
+
+  function cellColor(n) {
+    if (!n) return dark ? '#1e293b' : '#f1f5f9';
+    const ratio = n / maxN;
+    if (ratio < 0.25) return dark ? '#312e81' : '#e0e7ff';
+    if (ratio < 0.5)  return dark ? '#3730a3' : '#a5b4fc';
+    if (ratio < 0.75) return dark ? '#4f46e5' : '#6366f1';
+    return dark ? '#6366f1' : '#3730a3';
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // build week columns
+  // start from the Monday of the current week
+  const startDay = new Date(today);
+  const dow = startDay.getDay(); // 0=Sun
+  startDay.setDate(startDay.getDate() - ((dow + 6) % 7));
+
+  const weeks = [];
+  let cur = new Date(startDay);
+  while (cur <= new Date(today.getTime() + days * 86400000)) {
+    const week = [];
+    for (let d = 0; d < 7; d++) {
+      week.push(new Date(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+    weeks.push(week);
+  }
+
+  const dayLabels = ['월', '화', '수', '목', '금', '토', '일'];
+  const CELL = 14;
+  const GAP = 3;
+
+  let html = `<div class="flex gap-1 text-xs">`;
+
+  // day-of-week labels
+  html += `<div class="flex flex-col gap-[3px] text-slate-400 pr-1" style="padding-top:18px">`;
+  for (const dl of dayLabels) {
+    html += `<div style="height:${CELL}px;line-height:${CELL}px">${dl}</div>`;
+  }
+  html += `</div>`;
+
+  // weeks
+  for (const week of weeks) {
+    const monthLabel = week[0].getMonth() !== (week[6] || week[0]).getMonth()
+      ? `${week[0].getMonth() + 1}월`
+      : week[0].getDate() === 1 || (weeks.indexOf(week) === 0)
+        ? `${week[0].getMonth() + 1}월`
+        : '';
+
+    html += `<div class="flex flex-col gap-[3px]">`;
+    html += `<div class="text-slate-400 text-[10px]" style="height:16px;line-height:16px">${monthLabel}</div>`;
+    for (const day of week) {
+      const iso = day.toISOString().slice(0, 10);
+      const n = byDay[iso] || 0;
+      const isPast = day < today;
+      const isToday = day.toDateString() === today.toDateString();
+      const label = `${iso}: ${n}장`;
+      const border = isToday ? 'outline:2px solid #6366f1;outline-offset:1px' : '';
+      const opacity = isPast && !n ? 'opacity:0.4' : '';
+      html += `<div title="${label}" style="width:${CELL}px;height:${CELL}px;border-radius:3px;background:${cellColor(n)};${border};${opacity}"></div>`;
+    }
+    html += `</div>`;
+  }
+
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
 /* ---------- Admin status ---------- */
 function dot(ok) {
   return `<span class="inline-block h-2 w-2 rounded-full ${ok ? 'bg-emerald-500' : 'bg-rose-500'}"></span>`;
@@ -192,6 +289,8 @@ $('#status-refresh').addEventListener('click', () => {
   loadStatus();
   loadSummary();
   loadTimeseries();
+  loadStreak();
+  loadHeatmap();
 });
 
 $('#trigger-review').addEventListener('click', async (e) => {
@@ -202,6 +301,116 @@ $('#trigger-review').addEventListener('click', async (e) => {
     toast(`알림 ${r.sent}건 전송`);
   } catch (err) {
     toast('전송 실패', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+/* ---------- Add Card Modal ---------- */
+function openAddModal() {
+  $('#add-modal-backdrop').classList.remove('hidden');
+  $('#add-text').value = '';
+  $('#add-result').classList.add('hidden');
+  $('#add-result').innerHTML = '';
+  $('#submit-add-card').disabled = false;
+  setTimeout(() => $('#add-text').focus(), 50);
+}
+
+function closeAddModal() {
+  $('#add-modal-backdrop').classList.add('hidden');
+}
+
+$('#open-add-modal').addEventListener('click', openAddModal);
+$('#close-add-modal').addEventListener('click', closeAddModal);
+$('#cancel-add-modal').addEventListener('click', closeAddModal);
+$('#add-modal-backdrop').addEventListener('click', (e) => {
+  if (e.target === $('#add-modal-backdrop')) closeAddModal();
+});
+
+$('#submit-add-card').addEventListener('click', async () => {
+  const text = $('#add-text').value.trim();
+  if (!text) { toast('텍스트를 입력하세요', 'error'); return; }
+  const btn = $('#submit-add-card');
+  btn.disabled = true;
+  btn.textContent = '추출 중…';
+  const resultEl = $('#add-result');
+  resultEl.classList.add('hidden');
+  resultEl.innerHTML = '';
+  try {
+    const r = await api('/api/cards', { method: 'POST', body: JSON.stringify({ text }) });
+    let html = '';
+    if (r.saved.length) {
+      html += `<div class="text-emerald-600 dark:text-emerald-400 font-medium mb-1">저장됨 (${r.saved.length}건)</div>`;
+      html += `<ul class="text-xs text-slate-600 dark:text-slate-300 space-y-0.5 mb-2">${r.saved.map((e) => `<li>✓ ${escape(e)}</li>`).join('')}</ul>`;
+    }
+    if (r.duplicates.length) {
+      html += `<div class="text-amber-600 dark:text-amber-400 font-medium mb-1">중복 (${r.duplicates.length}건)</div>`;
+      html += `<ul class="text-xs text-slate-500 space-y-0.5">${r.duplicates.map((e) => `<li>— ${escape(e)}</li>`).join('')}</ul>`;
+    }
+    if (!r.saved.length && !r.duplicates.length) {
+      html = '<div class="text-slate-500">추출된 표현이 없습니다.</div>';
+    }
+    resultEl.innerHTML = html;
+    resultEl.classList.remove('hidden');
+    if (r.saved.length) {
+      loadCards();
+      loadSummary();
+    }
+  } catch (err) {
+    toast('저장 실패: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '추출 및 저장';
+  }
+});
+
+/* ---------- LLM Settings Modal ---------- */
+async function openLLMModal() {
+  $('#llm-modal-backdrop').classList.remove('hidden');
+  try {
+    const s = await api('/api/admin/settings');
+    const form = $('#llm-settings-form');
+    form.elements['llm_provider'].value = s.llm_provider || 'claude';
+    form.elements['extract_model'].value = s.extract_model || '';
+    form.elements['review_model'].value = s.review_model || '';
+    form.elements['review_time'].value = s.review_time || '';
+    form.elements['review_max_cards'].value = s.review_max_cards || '';
+    form.elements['llm_api_key'].value = '';
+    form.elements['llm_api_key'].placeholder = s.has_llm_api_key ? '설정됨 (변경 시에만 입력)' : '입력하세요';
+  } catch {
+    toast('설정 불러오기 실패', 'error');
+  }
+}
+
+function closeLLMModal() {
+  $('#llm-modal-backdrop').classList.add('hidden');
+}
+
+$('#open-llm-settings').addEventListener('click', openLLMModal);
+$('#close-llm-modal').addEventListener('click', closeLLMModal);
+$('#cancel-llm-modal').addEventListener('click', closeLLMModal);
+$('#llm-modal-backdrop').addEventListener('click', (e) => {
+  if (e.target === $('#llm-modal-backdrop')) closeLLMModal();
+});
+
+$('#llm-settings-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const patch = {};
+  for (const [k, v] of fd.entries()) {
+    if (v === '') continue;
+    if (k === 'review_max_cards') patch[k] = Number(v);
+    else patch[k] = v;
+  }
+  const btn = e.target.querySelector('[type="submit"]');
+  btn.disabled = true;
+  try {
+    await api('/api/admin/settings', { method: 'PATCH', body: JSON.stringify(patch) });
+    toast('설정 저장됨');
+    closeLLMModal();
+    loadStatus();
+  } catch {
+    toast('저장 실패', 'error');
   } finally {
     btn.disabled = false;
   }
@@ -317,7 +526,7 @@ function closeDrawer() {
   backdrop.classList.add('hidden');
 }
 backdrop.addEventListener('click', closeDrawer);
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDrawer(); closeAddModal(); closeLLMModal(); } });
 
 async function openDrawer(id) {
   backdrop.classList.remove('hidden');
@@ -415,4 +624,6 @@ function renderDrawer(card, logs) {
 loadStatus();
 loadSummary();
 loadTimeseries();
+loadStreak();
+loadHeatmap();
 loadCards();

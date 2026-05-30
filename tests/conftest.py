@@ -14,6 +14,7 @@ MIGRATIONS = [
     "migrations/001_cards.sql",
     "migrations/002_review_logs.sql",
     "migrations/003_pending_reviews.sql",
+    "migrations/004_pending_reviews_question_type.sql",
 ]
 
 

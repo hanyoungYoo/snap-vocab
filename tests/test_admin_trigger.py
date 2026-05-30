@@ -93,7 +93,8 @@ async def test_trigger_review_multiple_choice_sends_and_no_pending(
 
     async with db_pool.acquire() as conn:
         pending = await conn.fetch("SELECT * FROM pending_reviews")
-    assert pending == []
+    assert len(pending) == 1
+    assert pending[0]["question_type"] == "multiple_choice"
 
 
 async def test_trigger_review_fill_blank_creates_pending(client, db_pool, patch_llm_and_notif):
@@ -113,10 +114,13 @@ async def test_trigger_review_fill_blank_creates_pending(client, db_pool, patch_
     assert notif.questions[0]["type"] == "fill_blank"
 
     async with db_pool.acquire() as conn:
-        pending = await conn.fetch("SELECT message_id, correct_answer FROM pending_reviews")
+        pending = await conn.fetch(
+            "SELECT message_id, correct_answer, question_type FROM pending_reviews"
+        )
     assert len(pending) == 1
     assert pending[0]["message_id"] == "100"
     assert pending[0]["correct_answer"] == "ubiquitous"
+    assert pending[0]["question_type"] == "fill_blank"
 
 
 async def test_trigger_review_no_due_cards_returns_zero(client, patch_llm_and_notif):

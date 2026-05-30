@@ -49,11 +49,17 @@ Never branch off a stale or non-main branch. If already in a worktree, ensure th
 - Enabled rules: E (style), F (errors), I (imports), UP (upgrades), B (bugbear)
 
 **Running Checks Locally:**
+
+> CI runs **both** `ruff check` (lint) and `ruff format --check` (formatting). Always run both before committing — missing the format step is a common source of CI failure.
+
 ```bash
 # Check code style
 uv run ruff check . --exclude="*.md"
 
-# Format code
+# Check formatting (CI uses --check; omit it to auto-fix)
+uv run ruff format --check . --exclude="*.md"
+
+# Auto-fix formatting
 uv run ruff format . --exclude="*.md"
 
 # Type checking

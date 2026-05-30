@@ -99,6 +99,15 @@ Examples:
 
 ### Creating a PR
 
+**Before opening any PR, always sync with the latest `main`:**
+
+```bash
+git fetch origin main
+git rebase origin/main
+```
+
+This prevents merge conflicts on the PR.
+
 Always follow this order when creating a PR:
 
 1. Use `gh pr create`

@@ -68,10 +68,13 @@ async def run_daily_review() -> int:
                         "card %s: LLM returned no JSON (attempt %d)", card_d["id"], attempt + 1
                     )
                 except Exception as e:
-                    wait = 2 ** attempt
+                    wait = 2**attempt
                     logger.warning(
                         "card %s: LLM error (attempt %d): %s — retry in %ds",
-                        card_d["id"], attempt + 1, e, wait,
+                        card_d["id"],
+                        attempt + 1,
+                        e,
+                        wait,
                     )
                     if attempt < 2:
                         await asyncio.sleep(wait)

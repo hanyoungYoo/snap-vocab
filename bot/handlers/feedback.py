@@ -59,7 +59,10 @@ async def handle_choice(card_id: int, choice: str) -> None:
     correct = choice.strip().lower() == card_d["expression"].strip().lower()
     logger.info(
         "handle_choice card=%s choice=%r expression=%r correct=%s",
-        card_d["id"], choice, card_d["expression"], correct,
+        card_d["id"],
+        choice,
+        card_d["expression"],
+        correct,
     )
     feedback = "✅ 정답입니다!" if correct else f"❌ 틀렸습니다. 정답: {card_d['expression']}"
 

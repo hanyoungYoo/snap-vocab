@@ -6,7 +6,7 @@ import re
 
 from api.db import acquire
 from api.settings import settings
-from bot.srs import calculate_next_review, get_question_type
+from bot.srs import calculate_next_review
 from llm.base import get_llm
 from notification.base import get_notification
 from prompts.grade import GRADE_SYSTEM, grade_prompt
@@ -45,7 +45,19 @@ async def _update_card_and_log(
 
 
 async def handle_choice(card_id: int, choice: str) -> None:
-    """Multiple-choice answer. No LLM call; direct compare against card expression."""
+    """Multiple-choice answer. Consumes the pending_reviews row exactly once."""
+    async with acquire() as conn:
+        pending = await conn.fetchrow(
+            "DELETE FROM pending_reviews WHERE card_id=$1 AND question_type='multiple_choice'"
+            " RETURNING *",
+            card_id,
+        )
+
+    if not pending:
+        # Already processed (duplicate callback delivery or re-tap).
+        logger.info("handle_choice card=%s: no pending row, ignoring duplicate", card_id)
+        return
+
     async with acquire() as conn:
         card = await conn.fetchrow(
             "SELECT id, expression, level, interval_days FROM cards WHERE id=$1",
@@ -82,12 +94,18 @@ async def handle_text_answer(reply_to_message_id: str | None, text: str) -> None
     async with acquire() as conn:
         if reply_to_message_id:
             pending = await conn.fetchrow(
-                "SELECT * FROM pending_reviews WHERE message_id=$1",
+                "DELETE FROM pending_reviews WHERE message_id=$1 RETURNING *",
                 reply_to_message_id,
             )
         else:
             pending = await conn.fetchrow(
-                "SELECT * FROM pending_reviews ORDER BY created_at DESC LIMIT 1"
+                """DELETE FROM pending_reviews
+                   WHERE message_id = (
+                       SELECT message_id FROM pending_reviews
+                       WHERE question_type != 'multiple_choice'
+                       ORDER BY created_at DESC LIMIT 1
+                   )
+                   RETURNING *"""
             )
         if not pending:
             return
@@ -125,10 +143,5 @@ async def handle_text_answer(reply_to_message_id: str | None, text: str) -> None
         correct,
         text,
         feedback_text,
-        get_question_type(card_d["level"]),
+        pending_d["question_type"],
     )
-
-    async with acquire() as conn:
-        await conn.execute(
-            "DELETE FROM pending_reviews WHERE message_id=$1", pending_d["message_id"]
-        )

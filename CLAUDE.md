@@ -12,21 +12,23 @@ Three long-lived branches:
 
 **Deploy flow:**
 ```
-feat/* → main (PR merge)   ← code integration, no deploy
-main → release (PR)        ← intentional release, triggers Railway deploy
+feat/* → main (PR merge)              ← code integration, no deploy
+main → release (fast-forward push)    ← intentional release, triggers Railway deploy
 ```
 
 **Releasing to production:**
 1. Tag `main` with the new version
 2. Create a GitHub Release from the tag
-3. Open a PR from `main` → `release` — always tag first, then open the PR
+3. Fast-forward push `main` into `release` — **never use a PR**, it creates merge commits that cause conflicts on future releases
 
 ```bash
 git tag -a vX.Y.Z -m "vX.Y.Z — <summary>"
 git push origin vX.Y.Z
 gh release create vX.Y.Z --title "vX.Y.Z — <summary>" --notes "..."
-gh pr create --base release --title "release: vX.Y.Z"
+git push origin main:release --force
 ```
+
+> **Why `--force`?** `release` must always be a subset of `main`. The force flag is safe here because `release` never has independent commits — it only ever points to a `main` commit.
 
 ## Starting Work
 

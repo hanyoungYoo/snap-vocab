@@ -1,31 +1,146 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" class="h-full">
 <head>
   <meta charset="utf-8" />
-  <title>snap-vocab 대시보드</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>snap-vocab 콘솔</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' };
+    if (localStorage.getItem('theme') === 'dark' ||
+        (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="/static/dashboard.css" />
 </head>
-<body>
-  <h1>snap-vocab</h1>
-  <section class="stats">
-    <div><strong>총 카드</strong><span>{{ total }}</span></div>
-    <div><strong>오늘 복습 대상</strong><span>{{ due_today }}</span></div>
-    <div><strong>최근 7일 정답률</strong><span>{{ accuracy_7d }}%</span></div>
-  </section>
+<body class="h-full bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
 
-  <section class="levels">
-    <h2>레벨 분포</h2>
-    <ul>
-      {% for row in levels %}<li>L{{ row.level }}: {{ row.n }}</li>{% endfor %}
-    </ul>
-  </section>
+  <header class="border-b border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 backdrop-blur sticky top-0 z-10">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-indigo-600 text-white text-sm font-bold">S</span>
+        <h1 class="text-lg font-semibold">snap-vocab</h1>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="theme-toggle" class="text-xs px-3 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <span class="dark:hidden">🌙 다크</span>
+          <span class="hidden dark:inline">☀️ 라이트</span>
+        </button>
+        <form method="post" action="/logout">
+          <button class="text-xs px-3 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800">로그아웃</button>
+        </form>
+      </div>
+    </div>
+  </header>
 
-  <section>
-    <h2>카드 목록</h2>
-    <table id="cards"><thead>
-      <tr><th>표현</th><th>타입</th><th>뜻</th><th>레벨</th><th>다음 복습</th><th></th></tr>
-    </thead><tbody></tbody></table>
-  </section>
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-8">
+
+    <!-- 운영 패널 -->
+    <section class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+      <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <h2 class="text-sm font-semibold tracking-wide uppercase text-slate-500 dark:text-slate-400">운영</h2>
+        <button id="status-refresh" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">새로고침</button>
+      </div>
+      <div class="px-5 py-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="admin-status">
+        <div class="text-xs text-slate-500">로드 중…</div>
+      </div>
+      <div class="px-5 py-4 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-3">
+        <button id="trigger-review" class="text-sm px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50">
+          지금 복습 알림 보내기
+        </button>
+        <span class="text-xs text-slate-500 dark:text-slate-400">스케줄러 다음 실행 외, 즉시 트리거합니다.</span>
+      </div>
+    </section>
+
+    <!-- 통계 카드 -->
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-4" id="summary-cards">
+      <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+        <div class="text-xs text-slate-500 dark:text-slate-400">총 카드</div>
+        <div class="text-2xl font-semibold mt-1" data-stat="total">—</div>
+      </div>
+      <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+        <div class="text-xs text-slate-500 dark:text-slate-400">오늘 복습 대상</div>
+        <div class="text-2xl font-semibold mt-1 text-indigo-600 dark:text-indigo-400" data-stat="due_today">—</div>
+      </div>
+      <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+        <div class="text-xs text-slate-500 dark:text-slate-400">최근 7일 정답률</div>
+        <div class="text-2xl font-semibold mt-1" data-stat="accuracy_7d">—</div>
+      </div>
+      <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+        <div class="text-xs text-slate-500 dark:text-slate-400">최근 7일 신규</div>
+        <div class="text-2xl font-semibold mt-1" data-stat="new_7d">—</div>
+      </div>
+    </section>
+
+    <!-- 차트 -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="lg:col-span-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+        <h3 class="text-sm font-semibold mb-3">최근 30일 활동</h3>
+        <div class="relative h-64"><canvas id="chart-timeseries"></canvas></div>
+      </div>
+      <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+        <h3 class="text-sm font-semibold mb-3">레벨 분포</h3>
+        <div class="relative h-64"><canvas id="chart-levels"></canvas></div>
+      </div>
+    </section>
+
+    <!-- 카드 목록 -->
+    <section class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+      <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-3">
+        <h2 class="text-sm font-semibold tracking-wide uppercase text-slate-500 dark:text-slate-400 mr-auto">카드</h2>
+        <input id="filter-q" type="search" placeholder="표현 검색…" class="text-sm px-3 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950" />
+        <select id="filter-type" class="text-sm px-2 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950">
+          <option value="">모든 타입</option>
+          <option value="word">word</option>
+          <option value="idiom">idiom</option>
+          <option value="grammar">grammar</option>
+        </select>
+        <select id="filter-level" class="text-sm px-2 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950">
+          <option value="">모든 레벨</option>
+          <option value="0">L0</option><option value="1">L1</option><option value="2">L2</option>
+          <option value="3">L3</option><option value="4">L4</option><option value="5">L5</option>
+        </select>
+        <label class="text-sm inline-flex items-center gap-1.5">
+          <input id="filter-due" type="checkbox" class="rounded" /> 오늘 만기만
+        </label>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 dark:bg-slate-950/40 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <tr>
+              <th class="text-left px-4 py-2">표현</th>
+              <th class="text-left px-4 py-2">타입</th>
+              <th class="text-left px-4 py-2">뜻</th>
+              <th class="text-left px-4 py-2 cursor-pointer" data-sort="level">레벨</th>
+              <th class="text-left px-4 py-2 cursor-pointer" data-sort="next_review">다음 복습</th>
+              <th class="px-4 py-2"></th>
+            </tr>
+          </thead>
+          <tbody id="cards-tbody" class="divide-y divide-slate-100 dark:divide-slate-800"></tbody>
+        </table>
+      </div>
+      <div id="cards-empty" class="hidden px-5 py-10 text-center text-sm text-slate-500">표시할 카드가 없습니다.</div>
+      <div class="px-5 py-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
+        <div id="cards-count">—</div>
+        <div class="flex items-center gap-2">
+          <button id="page-prev" class="px-2 py-1 rounded border border-slate-300 dark:border-slate-700 disabled:opacity-40">‹ 이전</button>
+          <span id="page-info">1</span>
+          <button id="page-next" class="px-2 py-1 rounded border border-slate-300 dark:border-slate-700 disabled:opacity-40">다음 ›</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Drawer -->
+  <div id="drawer-backdrop" class="hidden fixed inset-0 bg-black/40 z-20"></div>
+  <aside id="drawer" class="fixed top-0 right-0 h-full w-full sm:w-[460px] bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 z-30 translate-x-full transition-transform overflow-y-auto">
+    <div class="p-5 space-y-5" id="drawer-body"></div>
+  </aside>
+
+  <!-- Toast -->
+  <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-md text-sm bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-lg"></div>
 
   <script src="/static/dashboard.js"></script>
 </body>

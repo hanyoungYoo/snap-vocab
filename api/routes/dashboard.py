@@ -5,7 +5,6 @@ from fastapi import APIRouter, Cookie, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from api.db import acquire
 from api.settings import settings
 
 router = APIRouter(tags=["dashboard"])
@@ -33,31 +32,15 @@ async def login(key: str = Form("")):
     return resp
 
 
+@router.post("/logout")
+async def logout():
+    resp = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+    resp.delete_cookie(_COOKIE_NAME)
+    return resp
+
+
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request, api_key: str = Cookie(default="")):
     if not _valid_key(api_key):
         return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
-
-    async with acquire() as conn:
-        total = await conn.fetchval("SELECT COUNT(*) FROM cards")
-        due_today = await conn.fetchval(
-            "SELECT COUNT(*) FROM cards WHERE next_review <= CURRENT_DATE"
-        )
-        accuracy_7d = await conn.fetchval(
-            """SELECT COALESCE(AVG(correct::int)::float, 0)
-               FROM review_logs WHERE reviewed_at >= NOW() - INTERVAL '7 days'"""
-        )
-        levels = await conn.fetch(
-            "SELECT level, COUNT(*) AS n FROM cards GROUP BY level ORDER BY level"
-        )
-
-    return templates.TemplateResponse(
-        request,
-        "dashboard.html",
-        {
-            "total": total,
-            "due_today": due_today,
-            "accuracy_7d": round((accuracy_7d or 0) * 100, 1),
-            "levels": [dict(r) for r in levels],
-        },
-    )
+    return templates.TemplateResponse(request, "dashboard.html", {})

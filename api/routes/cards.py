@@ -1,8 +1,9 @@
 import json
 import re
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from api.db import acquire
 from api.deps import verify_api_key
@@ -29,6 +30,14 @@ def _parse_cards(raw: str) -> list[dict]:
     if not isinstance(data, list):
         return []
     return [c for c in data if isinstance(c, dict) and c.get("type") in _VALID_TYPES]
+
+
+def _hydrate_jsonb(row: dict) -> dict:
+    if isinstance(row.get("meaning"), str):
+        row["meaning"] = json.loads(row["meaning"])
+    if isinstance(row.get("examples"), str):
+        row["examples"] = json.loads(row["examples"])
+    return row
 
 
 @router.post("/cards", response_model=CaptureResponse)
@@ -88,6 +97,13 @@ async def save_cards(req: CaptureRequest, _: None = Depends(verify_api_key)) -> 
 class CardPatch(BaseModel):
     meaning: dict | None = None
     examples: list | None = None
+    expression: str | None = Field(default=None, min_length=1, max_length=200)
+    type: str | None = None
+    level: int | None = Field(default=None, ge=0, le=10)
+    next_review: date | None = None
+
+
+_SORT_COLUMNS = {"updated_at", "next_review", "level", "created_at"}
 
 
 @router.get("/cards")
@@ -95,26 +111,73 @@ async def list_cards(
     _: None = Depends(verify_api_key),
     limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
+    q: str = Query(default="", max_length=200),
+    type: str | None = Query(default=None),
+    level: int | None = Query(default=None, ge=0, le=10),
+    due: bool = Query(default=False),
+    sort: str = Query(default="updated_at"),
+    order: str = Query(default="desc"),
 ) -> dict:
+    if type is not None and type not in _VALID_TYPES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid type")
+    sort_col = sort if sort in _SORT_COLUMNS else "updated_at"
+    order_sql = "ASC" if order.lower() == "asc" else "DESC"
+
+    where: list[str] = []
+    params: list = []
+
+    def _p(value) -> str:
+        params.append(value)
+        return f"${len(params)}"
+
+    if q:
+        where.append(f"expression ILIKE {_p('%' + q + '%')}")
+    if type:
+        where.append(f"type = {_p(type)}")
+    if level is not None:
+        where.append(f"level = {_p(level)}")
+    if due:
+        where.append("next_review <= CURRENT_DATE")
+
+    where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+
     async with acquire() as conn:
+        total = await conn.fetchval(f"SELECT COUNT(*) FROM cards {where_sql}", *params)
         rows = await conn.fetch(
+            f"""SELECT id, expression, type, meaning, examples, level,
+                       interval_days, next_review, created_at, updated_at
+                FROM cards {where_sql}
+                ORDER BY {sort_col} {order_sql}
+                LIMIT {_p(limit)} OFFSET {_p(offset)}""",
+            *params,
+        )
+
+    items = [_hydrate_jsonb(dict(r)) for r in rows]
+    return {"items": items, "total": total}
+
+
+@router.get("/cards/{card_id}")
+async def get_card(card_id: int, _: None = Depends(verify_api_key)) -> dict:
+    async with acquire() as conn:
+        row = await conn.fetchrow(
             """SELECT id, expression, type, meaning, examples, level,
                       interval_days, next_review, created_at, updated_at
-               FROM cards ORDER BY updated_at DESC LIMIT $1 OFFSET $2""",
-            limit,
-            offset,
+               FROM cards WHERE id = $1""",
+            card_id,
         )
-        total = await conn.fetchval("SELECT COUNT(*) FROM cards")
+        if not row:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "card not found")
+        logs = await conn.fetch(
+            """SELECT id, question_type, user_answer, correct, feedback, reviewed_at
+               FROM review_logs WHERE card_id = $1
+               ORDER BY reviewed_at DESC LIMIT 10""",
+            card_id,
+        )
 
-    items = []
-    for r in rows:
-        d = dict(r)
-        if isinstance(d.get("meaning"), str):
-            d["meaning"] = json.loads(d["meaning"])
-        if isinstance(d.get("examples"), str):
-            d["examples"] = json.loads(d["examples"])
-        items.append(d)
-    return {"items": items, "total": total}
+    return {
+        "card": _hydrate_jsonb(dict(row)),
+        "review_logs": [dict(log) for log in logs],
+    }
 
 
 @router.patch("/cards/{card_id}")
@@ -123,15 +186,27 @@ async def update_card(
     patch: CardPatch,
     _: None = Depends(verify_api_key),
 ) -> dict:
-    fields = {k: v for k, v in patch.model_dump(exclude_none=True).items()}
+    fields = patch.model_dump(exclude_none=True)
     if not fields:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "no editable field")
-    sets = ", ".join(f"{k} = ${i + 1}::jsonb" for i, k in enumerate(fields))
-    values = [json.dumps(v) for v in fields.values()]
+    if "type" in fields and fields["type"] not in _VALID_TYPES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid type")
+
+    jsonb_keys = {"meaning", "examples"}
+    set_parts: list[str] = []
+    values: list = []
+    for i, (key, value) in enumerate(fields.items(), start=1):
+        if key in jsonb_keys:
+            set_parts.append(f"{key} = ${i}::jsonb")
+            values.append(json.dumps(value))
+        else:
+            set_parts.append(f"{key} = ${i}")
+            values.append(value)
+
     async with acquire() as conn:
         # asyncpg returns "UPDATE N" / "DELETE N"; " 0" means no row matched
         result = await conn.execute(
-            f"UPDATE cards SET {sets} WHERE id = ${len(fields) + 1}",
+            f"UPDATE cards SET {', '.join(set_parts)} WHERE id = ${len(fields) + 1}",
             *values,
             card_id,
         )

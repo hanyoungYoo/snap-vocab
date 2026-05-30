@@ -26,7 +26,13 @@ async def telegram_webhook(
 
     callback_query = update.get("callback_query")
     if callback_query:
+        callback_query_id = callback_query.get("id")
         chat_id = str(callback_query.get("message", {}).get("chat", {}).get("id", ""))
+
+        # answerCallbackQuery — Telegram 재시도 방지 (인증 무관하게 항상 응답)
+        notif = TelegramNotification()
+        await notif.answer_callback_query(callback_query_id)
+
         if not chat_id or chat_id != settings.telegram_chat_id:
             return {"ok": True}
         data = callback_query.get("data", "")

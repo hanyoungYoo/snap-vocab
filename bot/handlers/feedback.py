@@ -48,8 +48,14 @@ async def handle_choice(card_id: int, choice: str) -> None:
             "SELECT id, expression, level, interval_days FROM cards WHERE id=$1",
             card_id,
         )
-    if not card:
-        return
+        # pending_reviews 삭제 — 중복 처리 방지 (DELETE 후 card_id 없으면 이미 처리된 것)
+        deleted = await conn.fetchval(
+            "DELETE FROM pending_reviews WHERE card_id=$1 RETURNING card_id",
+            card_id,
+        )
+
+    if not card or not deleted:
+        return  # 이미 처리됐거나 존재하지 않는 카드
 
     card_d = dict(card)
     correct = choice.strip().lower() == card_d["expression"].strip().lower()

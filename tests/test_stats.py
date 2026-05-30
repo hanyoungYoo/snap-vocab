@@ -95,4 +95,3 @@ async def test_admin_status(client: AsyncClient, monkeypatch):
 async def test_admin_status_requires_auth(client: AsyncClient):
     r = await client.get("/api/admin/status")
     assert r.status_code == 422
-

@@ -288,9 +288,7 @@ async def test_patch_card_level_and_next_review(client: AsyncClient, db_pool):
     assert r.status_code == 200
 
     async with db_pool.acquire() as conn:
-        row = await conn.fetchrow(
-            "SELECT level, next_review FROM cards WHERE id = $1", card_id
-        )
+        row = await conn.fetchrow("SELECT level, next_review FROM cards WHERE id = $1", card_id)
     assert row["level"] == 5
     assert str(row["next_review"]) == "2030-01-01"
 
@@ -305,9 +303,7 @@ async def test_patch_card_rejects_empty_body(client: AsyncClient, db_pool):
 @pytest.mark.asyncio
 async def test_patch_card_rejects_invalid_type(client: AsyncClient, db_pool):
     card_id = await _insert_card(db_pool)
-    r = await client.patch(
-        f"/api/cards/{card_id}", json={"type": "nope"}, headers=HEADERS
-    )
+    r = await client.patch(f"/api/cards/{card_id}", json={"type": "nope"}, headers=HEADERS)
     assert r.status_code == 400
 
 

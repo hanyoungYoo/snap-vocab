@@ -21,9 +21,7 @@ def _llm_configured() -> bool:
     has_key = settings.llm_api_key or (
         settings.llm_provider == "openrouter" and settings.openrouter_api_key
     )
-    return bool(settings.llm_provider) and (
-        settings.llm_provider in keyless or bool(has_key)
-    )
+    return bool(settings.llm_provider) and (settings.llm_provider in keyless or bool(has_key))
 
 
 def _notification_configured() -> bool:

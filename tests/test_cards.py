@@ -22,6 +22,11 @@ class _FakeLLM(LLMBase):
         return self.response
 
 
+@pytest_asyncio.fixture(autouse=True, loop_scope="session")
+async def _clean(clean_tables):  # noqa: PT004
+    yield
+
+
 @pytest_asyncio.fixture(loop_scope="session")
 async def llm_configured(monkeypatch):
     """Fill in LLM env so the 503 guard passes; restored after test."""
@@ -40,7 +45,7 @@ def _install_fake_llm(monkeypatch, response: str) -> _FakeLLM:
 async def test_health(client: AsyncClient):
     r = await client.get("/")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok"}
+    assert "text/html" in r.headers["content-type"]
 
 
 @pytest.mark.asyncio
@@ -202,19 +207,21 @@ async def test_malformed_llm_response_returns_empty(
 
 @pytest.mark.asyncio
 async def test_dashboard_unauthorized(client: AsyncClient):
-    r = await client.get("/dashboard")
-    assert r.status_code == 401
+    r = await client.get("/dashboard", follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/"
 
 
 @pytest.mark.asyncio
 async def test_dashboard_wrong_key(client: AsyncClient):
-    r = await client.get("/dashboard", params={"key": "wrong"})
-    assert r.status_code == 401
+    r = await client.get("/dashboard", cookies={"api_key": "wrong"}, follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/"
 
 
 @pytest.mark.asyncio
 async def test_dashboard_ok(client: AsyncClient):
-    r = await client.get("/dashboard", params={"key": API_KEY})
+    r = await client.get("/dashboard", cookies={"api_key": API_KEY})
     assert r.status_code == 200
     assert "text/html" in r.headers["content-type"]
     assert "snap-vocab" in r.text
@@ -271,13 +278,32 @@ async def test_patch_card_meaning(client: AsyncClient, db_pool):
 
 
 @pytest.mark.asyncio
-async def test_patch_card_rejects_unknown_field(client: AsyncClient, db_pool):
+async def test_patch_card_level_and_next_review(client: AsyncClient, db_pool):
     card_id = await _insert_card(db_pool)
     r = await client.patch(
         f"/api/cards/{card_id}",
-        json={"level": 5},
+        json={"level": 5, "next_review": "2030-01-01"},
         headers=HEADERS,
     )
+    assert r.status_code == 200
+
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT level, next_review FROM cards WHERE id = $1", card_id)
+    assert row["level"] == 5
+    assert str(row["next_review"]) == "2030-01-01"
+
+
+@pytest.mark.asyncio
+async def test_patch_card_rejects_empty_body(client: AsyncClient, db_pool):
+    card_id = await _insert_card(db_pool)
+    r = await client.patch(f"/api/cards/{card_id}", json={}, headers=HEADERS)
+    assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_patch_card_rejects_invalid_type(client: AsyncClient, db_pool):
+    card_id = await _insert_card(db_pool)
+    r = await client.patch(f"/api/cards/{card_id}", json={"type": "nope"}, headers=HEADERS)
     assert r.status_code == 400
 
 
@@ -313,4 +339,56 @@ async def test_delete_card_requires_auth(client: AsyncClient, db_pool):
 @pytest.mark.asyncio
 async def test_delete_card_not_found(client: AsyncClient):
     r = await client.delete("/api/cards/99999", headers=HEADERS)
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_list_cards_filter_by_q(client: AsyncClient, db_pool):
+    await _insert_card(db_pool, "break a leg")
+    await _insert_card(db_pool, "kick the bucket")
+    r = await client.get("/api/cards?q=leg", headers=HEADERS)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] == 1
+    assert data["items"][0]["expression"] == "break a leg"
+
+
+@pytest.mark.asyncio
+async def test_list_cards_filter_by_due(client: AsyncClient, db_pool):
+    # one due today
+    await _insert_card(db_pool, "due-today")
+    # one due in the future
+    async with db_pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO cards (expression, type, meaning, examples, next_review)
+               VALUES ('future', 'idiom', '{}'::jsonb, '[]'::jsonb,
+                       CURRENT_DATE + INTERVAL '10 days')"""
+        )
+    r = await client.get("/api/cards?due=true", headers=HEADERS)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] == 1
+    assert data["items"][0]["expression"] == "due-today"
+
+
+@pytest.mark.asyncio
+async def test_get_card_detail(client: AsyncClient, db_pool):
+    card_id = await _insert_card(db_pool)
+    async with db_pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO review_logs (card_id, question_type, user_answer, correct)
+               VALUES ($1, 'fill_blank', 'die', true)""",
+            card_id,
+        )
+    r = await client.get(f"/api/cards/{card_id}", headers=HEADERS)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["card"]["id"] == card_id
+    assert len(data["review_logs"]) == 1
+    assert data["review_logs"][0]["correct"] is True
+
+
+@pytest.mark.asyncio
+async def test_get_card_detail_not_found(client: AsyncClient):
+    r = await client.get("/api/cards/99999", headers=HEADERS)
     assert r.status_code == 404

@@ -14,6 +14,7 @@ MIGRATIONS = [
     "migrations/001_cards.sql",
     "migrations/002_review_logs.sql",
     "migrations/003_pending_reviews.sql",
+    "migrations/004_pending_reviews_question_type.sql",
 ]
 
 
@@ -31,7 +32,7 @@ async def db_pool():
     await pool.close()
 
 
-@pytest_asyncio.fixture(autouse=True, loop_scope="session")
+@pytest_asyncio.fixture(loop_scope="session")
 async def clean_tables(db_pool):
     yield
     async with db_pool.acquire() as conn:

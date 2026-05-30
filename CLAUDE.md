@@ -1,5 +1,33 @@
 # snap-vocab — Claude Working Guide
 
+## Branch Strategy
+
+Three long-lived branches:
+
+| Branch | Purpose |
+|--------|---------|
+| `main` | Integration — all feature PRs merge here |
+| `release` | Production — Railway deploys from this branch |
+| `feat/*`, `fix/*`, etc. | Short-lived feature branches, always cut from `main` |
+
+**Deploy flow:**
+```
+feat/* → main (PR merge)   ← code integration, no deploy
+main → release (PR)        ← intentional release, triggers Railway deploy
+```
+
+**Releasing to production:**
+1. Tag `main` with the new version
+2. Create a GitHub Release from the tag
+3. Open a PR from `main` → `release` — always tag first, then open the PR
+
+```bash
+git tag -a vX.Y.Z -m "vX.Y.Z — <summary>"
+git push origin vX.Y.Z
+gh release create vX.Y.Z --title "vX.Y.Z — <summary>" --notes "..."
+gh pr create --base release --title "release: vX.Y.Z"
+```
+
 ## Starting Work
 
 **Always sync with main before starting any task.** This prevents merge conflicts.
@@ -21,11 +49,17 @@ Never branch off a stale or non-main branch. If already in a worktree, ensure th
 - Enabled rules: E (style), F (errors), I (imports), UP (upgrades), B (bugbear)
 
 **Running Checks Locally:**
+
+> CI runs **both** `ruff check` (lint) and `ruff format --check` (formatting). Always run both before committing — missing the format step is a common source of CI failure.
+
 ```bash
 # Check code style
 uv run ruff check . --exclude="*.md"
 
-# Format code
+# Check formatting (CI uses --check; omit it to auto-fix)
+uv run ruff format --check . --exclude="*.md"
+
+# Auto-fix formatting
 uv run ruff format . --exclude="*.md"
 
 # Type checking

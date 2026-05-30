@@ -39,6 +39,9 @@ async def run_daily_review() -> int:
     notif = get_notification()
     sent = 0
 
+    # 세션 시작 메시지
+    await notif.send_text(f"📚 오늘 복습할 카드가 {len(cards)}개 있어요. 시작합니다!")
+
     for card in cards:
         try:
             card_d = dict(card)

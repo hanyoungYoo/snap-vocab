@@ -214,14 +214,14 @@ async def test_dashboard_unauthorized(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_dashboard_wrong_key(client: AsyncClient):
-    r = await client.get("/dashboard", params={"key": "wrong"}, follow_redirects=False)
+    r = await client.get("/dashboard", cookies={"api_key": "wrong"}, follow_redirects=False)
     assert r.status_code == 303
     assert r.headers["location"] == "/"
 
 
 @pytest.mark.asyncio
 async def test_dashboard_ok(client: AsyncClient):
-    r = await client.get("/dashboard", params={"key": API_KEY})
+    r = await client.get("/dashboard", cookies={"api_key": API_KEY})
     assert r.status_code == 200
     assert "text/html" in r.headers["content-type"]
     assert "snap-vocab" in r.text

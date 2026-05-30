@@ -20,13 +20,20 @@ main → release (PR)        ← intentional release, triggers Railway deploy
 1. Tag `main` with the new version
 2. Create a GitHub Release from the tag
 3. Open a PR from `main` → `release` — always tag first, then open the PR
+4. After the release PR merges, immediately open a back merge PR (`release` → `main`) to keep branches in sync
 
 ```bash
+# Step 1-3: tag and release
 git tag -a vX.Y.Z -m "vX.Y.Z — <summary>"
 git push origin vX.Y.Z
 gh release create vX.Y.Z --title "vX.Y.Z — <summary>" --notes "..."
 gh pr create --base release --title "release: vX.Y.Z"
+
+# Step 4: back merge after release PR is merged
+gh pr create --base main --head release --title "chore: back merge release into main post vX.Y.Z"
 ```
+
+**Why back merge matters:** if `release` diverges from `main` (e.g. due to conflict resolution commits), the next release PR will hit conflicts again. Back merging after every release keeps the two branches in sync.
 
 ## Starting Work
 

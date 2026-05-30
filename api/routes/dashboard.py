@@ -1,8 +1,8 @@
 import hmac
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Request, status
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Form, Request, status
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from api.db import acquire
@@ -13,10 +13,22 @@ _TEMPLATES_DIR = Path(__file__).parent.parent.parent / "templates"
 templates = Jinja2Templates(directory=_TEMPLATES_DIR)
 
 
+@router.get("/", response_class=HTMLResponse)
+async def login_page(request: Request, error: bool = False):
+    return templates.TemplateResponse(request, "login.html", {"error": error})
+
+
+@router.post("/login")
+async def login(key: str = Form("")):
+    if not hmac.compare_digest(key, settings.api_secret_key):
+        return RedirectResponse("/?error=1", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(f"/dashboard?key={key}", status_code=status.HTTP_303_SEE_OTHER)
+
+
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request, key: str = ""):
     if not hmac.compare_digest(key, settings.api_secret_key):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED)
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
 
     async with acquire() as conn:
         total = await conn.fetchval("SELECT COUNT(*) FROM cards")

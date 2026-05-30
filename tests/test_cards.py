@@ -207,14 +207,16 @@ async def test_malformed_llm_response_returns_empty(
 
 @pytest.mark.asyncio
 async def test_dashboard_unauthorized(client: AsyncClient):
-    r = await client.get("/dashboard")
-    assert r.status_code == 401
+    r = await client.get("/dashboard", follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/"
 
 
 @pytest.mark.asyncio
 async def test_dashboard_wrong_key(client: AsyncClient):
-    r = await client.get("/dashboard", params={"key": "wrong"})
-    assert r.status_code == 401
+    r = await client.get("/dashboard", params={"key": "wrong"}, follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/"
 
 
 @pytest.mark.asyncio

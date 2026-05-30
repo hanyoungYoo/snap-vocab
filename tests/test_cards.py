@@ -22,6 +22,11 @@ class _FakeLLM(LLMBase):
         return self.response
 
 
+@pytest_asyncio.fixture(autouse=True, loop_scope="session")
+async def _clean(clean_tables):  # noqa: PT004
+    yield
+
+
 @pytest_asyncio.fixture(loop_scope="session")
 async def llm_configured(monkeypatch):
     """Fill in LLM env so the 503 guard passes; restored after test."""

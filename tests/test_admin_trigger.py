@@ -3,6 +3,12 @@ from __future__ import annotations
 import json
 
 import pytest
+import pytest_asyncio
+
+
+@pytest_asyncio.fixture(autouse=True, loop_scope="session")
+async def _clean(clean_tables):  # noqa: PT004
+    yield
 
 
 class _StubLLM:

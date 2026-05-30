@@ -1,5 +1,28 @@
 # snap-vocab — Claude Working Guide
 
+## Branch Strategy
+
+Three long-lived branches:
+
+| Branch | Purpose |
+|--------|---------|
+| `main` | Integration — all feature PRs merge here |
+| `release` | Production — Railway deploys from this branch |
+| `feat/*`, `fix/*`, etc. | Short-lived feature branches, always cut from `main` |
+
+**Deploy flow:**
+```
+feat/* → main (PR merge)   ← code integration, no deploy
+main → release (PR)        ← intentional release, triggers Railway deploy
+```
+
+**Versioning:** Tag `release` at each intentional release milestone.
+```bash
+git tag -a vX.Y.Z -m "vX.Y.Z — <summary>"
+git push origin vX.Y.Z
+gh release create vX.Y.Z --title "vX.Y.Z — <summary>" --notes "..."
+```
+
 ## Starting Work
 
 **Always sync with main before starting any task.** This prevents merge conflicts.

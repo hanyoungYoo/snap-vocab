@@ -31,7 +31,7 @@ async def _seed(db_pool):
 @pytest.mark.asyncio
 async def test_stats_summary_requires_auth(client: AsyncClient):
     r = await client.get("/api/stats/summary")
-    assert r.status_code == 422
+    assert r.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -94,4 +94,4 @@ async def test_admin_status(client: AsyncClient, monkeypatch):
 @pytest.mark.asyncio
 async def test_admin_status_requires_auth(client: AsyncClient):
     r = await client.get("/api/admin/status")
-    assert r.status_code == 422
+    assert r.status_code == 401

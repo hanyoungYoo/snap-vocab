@@ -61,7 +61,7 @@ async def test_invalid_api_key(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_missing_api_key(client: AsyncClient):
     r = await client.post("/api/cards", json={"text": "x"})
-    assert r.status_code == 422
+    assert r.status_code == 401
 
 
 @pytest.mark.asyncio

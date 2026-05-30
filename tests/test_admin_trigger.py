@@ -69,7 +69,7 @@ async def _insert_due_card(db_pool, *, level: int = 0) -> int:
 
 async def test_trigger_review_requires_api_key(client):
     resp = await client.post("/api/admin/trigger-review")
-    assert resp.status_code == 422  # Missing required header
+    assert resp.status_code == 401
 
 
 async def test_trigger_review_rejects_bad_key(client):

@@ -28,9 +28,9 @@ function escape(s) {
 }
 
 async function api(path, opts = {}) {
-  const headers = { 'X-API-Key': getCookie('api_key'), ...(opts.headers || {}) };
+  const headers = { ...(opts.headers || {}) };
   if (opts.body && !(opts.body instanceof FormData)) headers['Content-Type'] = 'application/json';
-  const res = await fetch(path, { ...opts, headers });
+  const res = await fetch(path, { ...opts, headers, credentials: 'same-origin' });
   if (res.status === 401) {
     window.location.href = '/';
     throw new Error('unauthorized');

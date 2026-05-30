@@ -45,7 +45,7 @@ def _install_fake_llm(monkeypatch, response: str) -> _FakeLLM:
 async def test_health(client: AsyncClient):
     r = await client.get("/")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok"}
+    assert "text/html" in r.headers["content-type"]
 
 
 @pytest.mark.asyncio

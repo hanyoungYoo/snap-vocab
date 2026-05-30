@@ -46,14 +46,19 @@ jobs:
           python -c "import api.main; import api.db; import api.deps" || echo "Import check (optional)"
       - name: Check for Korean/non-English comments
         run: |
-          echo "🔍 Checking for Korean comments..."
-          # Use grep -P for proper Unicode range support on GitHub Actions runners
-          if git diff origin/main HEAD --unified=0 --no-color \
-            | grep -P "^\+.*[\x{AC00}-\x{D7A3}\x{1100}-\x{11FF}\x{3130}-\x{318F}]" 2>/dev/null \
-            | grep -v "Binary" \
-            | grep -v "^+++"; then
-            echo "❌ Found Korean text in code/comments"
-            echo "Exception: .env.example values and user-facing strings are allowed"
+          echo "🔍 Checking for Korean comments in source files..."
+          # Check only code files; .html templates contain user-facing Korean strings
+          FAILED=0
+          for ext in py js ts sql toml yml yaml; do
+            for f in $(git diff origin/main HEAD --name-only | grep "\.${ext}$"); do
+              if [ -f "$f" ] && grep -P "[\x{AC00}-\x{D7A3}\x{1100}-\x{11FF}\x{3130}-\x{318F}]" "$f" 2>/dev/null; then
+                echo "❌ Korean text found in: $f"
+                FAILED=1
+              fi
+            done
+          done
+          if [ "$FAILED" = "1" ]; then
+            echo "Exception: .html templates and .env.example values are allowed"
             exit 1
           fi
           echo "✅ No Korean comments found in code"

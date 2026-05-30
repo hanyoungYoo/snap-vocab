@@ -28,7 +28,7 @@ async def login(key: str = Form("")):
     if not _valid_key(key):
         return RedirectResponse("/?error=1", status_code=status.HTTP_303_SEE_OTHER)
     resp = RedirectResponse("/dashboard", status_code=status.HTTP_303_SEE_OTHER)
-    resp.set_cookie(_COOKIE_NAME, key, httponly=True, secure=True, samesite="strict")
+    resp.set_cookie(_COOKIE_NAME, key, httponly=True, secure=True, samesite="lax")
     return resp
 
 

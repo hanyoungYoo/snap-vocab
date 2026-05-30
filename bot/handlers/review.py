@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -38,6 +39,9 @@ async def run_daily_review() -> int:
     notif = get_notification()
     sent = 0
 
+    # Announce the session before sending questions
+    await notif.send_text(f"📚 You have {len(cards)} card(s) to review today. Let's start!")
+
     for card in cards:
         try:
             card_d = dict(card)
@@ -51,10 +55,31 @@ async def run_daily_review() -> int:
                         card_d[key] = {} if key == "meaning" else []
             qtype = get_question_type(card_d["level"])
             prompt_fn = multiple_choice_prompt if qtype == "multiple_choice" else fill_blank_prompt
-            raw = await llm.complete(GENERATE_SYSTEM, prompt_fn(card_d), max_tokens=1024)
-            q = _extract_json(raw)
+
+            # Retry up to 3 times to handle transient rate-limit errors
+            q = {}
+            for attempt in range(3):
+                try:
+                    raw = await llm.complete(GENERATE_SYSTEM, prompt_fn(card_d), max_tokens=1024)
+                    q = _extract_json(raw)
+                    if q:
+                        break
+                    logger.warning(
+                        "card %s: LLM returned no JSON (attempt %d)", card_d["id"], attempt + 1
+                    )
+                except Exception as e:
+                    wait = 2**attempt
+                    logger.warning(
+                        "card %s: LLM error (attempt %d): %s — retry in %ds",
+                        card_d["id"],
+                        attempt + 1,
+                        e,
+                        wait,
+                    )
+                    if attempt < 2:
+                        await asyncio.sleep(wait)
             if not q:
-                logger.warning("card %s: LLM returned no parseable JSON, skipping", card_d["id"])
+                logger.error("card %s: LLM failed after 3 attempts, skipping", card_d["id"])
                 continue
 
             message_id = await notif.send_question(

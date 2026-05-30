@@ -1,7 +1,10 @@
 const $ = (id) => document.getElementById(id);
 
 (async () => {
-  const { apiUrl = '', apiKey = '' } = await chrome.storage.local.get(['apiUrl', 'apiKey']);
+  const {
+    apiUrl = 'https://snap-vocab-production.up.railway.app',
+    apiKey = '',
+  } = await chrome.storage.local.get(['apiUrl', 'apiKey']);
   $('apiUrl').value = apiUrl;
   $('apiKey').value = apiKey;
 })();

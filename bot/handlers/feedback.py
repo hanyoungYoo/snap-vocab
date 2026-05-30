@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 
 from api.db import acquire
@@ -9,6 +10,8 @@ from bot.srs import calculate_next_review, get_question_type
 from llm.base import get_llm
 from notification.base import get_notification
 from prompts.grade import GRADE_SYSTEM, grade_prompt
+
+logger = logging.getLogger(__name__)
 
 
 def _extract_json(text: str) -> dict:
@@ -48,12 +51,20 @@ async def handle_choice(card_id: int, choice: str) -> None:
             "SELECT id, expression, level, interval_days FROM cards WHERE id=$1",
             card_id,
         )
+
     if not card:
         return
 
     card_d = dict(card)
     correct = choice.strip().lower() == card_d["expression"].strip().lower()
-    feedback = "✅ 정답" if correct else f"❌ 정답: {card_d['expression']}"
+    logger.info(
+        "handle_choice card=%s choice=%r expression=%r correct=%s",
+        card_d["id"],
+        choice,
+        card_d["expression"],
+        correct,
+    )
+    feedback = "✅ Correct!" if correct else f"❌ Wrong. Answer: {card_d['expression']}"
 
     notif = get_notification()
     await notif.send_feedback(feedback)

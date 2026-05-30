@@ -24,5 +24,11 @@ def get_llm(provider: str | None = None, model: str | None = None) -> LLMBase:
     if provider == "gemini":
         raise NotImplementedError("gemini provider not implemented yet")
     if provider == "ollama":
-        raise NotImplementedError("ollama provider not implemented yet")
+        from llm.ollama import OllamaLLM
+
+        return OllamaLLM(model)
+    if provider == "openrouter":
+        from llm.openrouter import OpenRouterLLM
+
+        return OpenRouterLLM(model)
     raise ValueError(f"Unknown LLM provider: {provider}")

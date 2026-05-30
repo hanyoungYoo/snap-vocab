@@ -1,4 +1,18 @@
 services:
+  api:
+    build: .
+    env_file: .env
+    environment:
+      # Inside the container, connect to db via service name
+      DATABASE_URL: postgresql://snap:snap@db:5432/snap_vocab
+      # Ollama runs on the host machine; use host.docker.internal to reach it
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+    ports:
+      - "8001:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
   db:
     image: postgres:15
     environment:

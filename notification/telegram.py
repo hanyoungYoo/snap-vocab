@@ -46,3 +46,7 @@ class TelegramNotification(NotificationBase):
 
     async def send_text(self, text: str) -> None:
         await self.bot.send_message(chat_id=self.chat_id, text=text)
+
+    async def answer_callback_query(self, callback_query_id: str) -> None:
+        """Acknowledge a callback_query so Telegram stops retrying it."""
+        await self.bot.answer_callback_query(callback_query_id=callback_query_id)

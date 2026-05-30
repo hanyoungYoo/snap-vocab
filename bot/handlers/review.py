@@ -92,21 +92,22 @@ async def run_daily_review() -> int:
                 }
             )
 
-            if qtype != "multiple_choice":
-                async with acquire() as conn:
-                    await conn.execute(
-                        """INSERT INTO pending_reviews
-                             (message_id, card_id, correct_answer, question)
-                           VALUES ($1, $2, $3, $4)
-                           ON CONFLICT (message_id) DO UPDATE
-                             SET card_id = EXCLUDED.card_id,
-                                 correct_answer = EXCLUDED.correct_answer,
-                                 question = EXCLUDED.question""",
-                        message_id,
-                        card_d["id"],
-                        q.get("answer", ""),
-                        q.get("question", ""),
-                    )
+            async with acquire() as conn:
+                await conn.execute(
+                    """INSERT INTO pending_reviews
+                         (message_id, card_id, correct_answer, question, question_type)
+                       VALUES ($1, $2, $3, $4, $5)
+                       ON CONFLICT (message_id) DO UPDATE
+                         SET card_id = EXCLUDED.card_id,
+                             correct_answer = EXCLUDED.correct_answer,
+                             question = EXCLUDED.question,
+                             question_type = EXCLUDED.question_type""",
+                    message_id,
+                    card_d["id"],
+                    q.get("answer", ""),
+                    q.get("question", ""),
+                    qtype,
+                )
             sent += 1
         except Exception:
             logger.exception("card %s: failed to send review, skipping", card.get("id"))

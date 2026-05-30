@@ -32,7 +32,7 @@ async def db_pool():
     await pool.close()
 
 
-@pytest_asyncio.fixture(autouse=True, loop_scope="session")
+@pytest_asyncio.fixture(loop_scope="session")
 async def clean_tables(db_pool):
     yield
     async with db_pool.acquire() as conn:

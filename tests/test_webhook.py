@@ -19,6 +19,10 @@ class FakeTelegramNotification:
         FakeTelegramNotification.sent.append(text)
 
 
+async def _noop_handle_text_answer(*_args, **_kwargs) -> None:
+    pass
+
+
 @pytest.fixture
 def webhook_env(monkeypatch):
     monkeypatch.setattr(settings, "telegram_chat_id", "111", raising=False)
@@ -26,6 +30,7 @@ def webhook_env(monkeypatch):
     import api.routes.webhook as webhook_mod
 
     monkeypatch.setattr(webhook_mod, "TelegramNotification", FakeTelegramNotification)
+    monkeypatch.setattr(webhook_mod, "handle_text_answer", _noop_handle_text_answer)
     FakeTelegramNotification.sent = []
     yield
 

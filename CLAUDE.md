@@ -16,11 +16,16 @@ feat/* → main (PR merge)   ← code integration, no deploy
 main → release (PR)        ← intentional release, triggers Railway deploy
 ```
 
-**Versioning:** Tag `release` at each intentional release milestone.
+**Releasing to production:**
+1. Tag `main` with the new version
+2. Create a GitHub Release from the tag
+3. Open a PR from `main` → `release` — always tag first, then open the PR
+
 ```bash
 git tag -a vX.Y.Z -m "vX.Y.Z — <summary>"
 git push origin vX.Y.Z
 gh release create vX.Y.Z --title "vX.Y.Z — <summary>" --notes "..."
+gh pr create --base release --title "release: vX.Y.Z"
 ```
 
 ## Starting Work
